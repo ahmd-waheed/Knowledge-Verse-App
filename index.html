@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowledge-Verse</title>
+<meta name="description" content="Reader for my Knowledge-Verse course notes: offline, synced through my private GitHub repository.">
+<meta name="theme-color" content="#1e293b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!--
+  Knowledge-Verse reading app (source: app/ in the private Knowledge-Verse repo; published by tools/publish_app.py).
+  This page holds code only. The notes are downloaded from the private repo with the token stored on this
+  device and kept in the browser for offline reading; nothing about any course is on the server.
+-->
+<style>
+:root{ --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; --accent-fg:#fff; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; }
+@media (prefers-color-scheme: dark){ :root{ --bg:#0b1120; --card:#111827; --fg:#e5e7eb; --muted:#94a3b8; --line:#1f2937; --accent:#60a5fa; --accent-fg:#0b1120; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; } }
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+main{ max-width:720px; margin:0 auto; padding:20px 16px 48px; }
+header{ display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+header img{ width:36px; height:36px; }
+h1{ font-size:1.35rem; margin:0; letter-spacing:.01em; }
+h2{ font-size:1.05rem; margin:0 0 8px; }
+#status{ color:var(--muted); font-size:.92rem; min-height:1.5em; margin:0 0 16px; }
+#status.bad{ color:var(--bad); } #status.ok{ color:var(--ok); }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:0 0 12px; }
+.course{ display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit; }
+.course:hover{ border-color:var(--accent); }
+.course .code{ font-weight:700; font-size:1.05rem; }
+.course .title{ color:var(--fg); }
+.course .meta{ color:var(--muted); font-size:.85rem; }
+.course .go{ margin-left:auto; color:var(--accent); font-size:1.4rem; }
+.course.missing{ opacity:.6; pointer-events:none; }
+.dot{ display:inline-block; width:.55em; height:.55em; border-radius:50%; background:var(--muted); margin-right:.35em; vertical-align:.08em; }
+.dot.ok{ background:var(--ok); } .dot.warn{ background:var(--warn); } .dot.bad{ background:var(--bad); }
+.row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+button,.btn{ font:inherit; border:1px solid var(--line); background:var(--card); color:var(--fg); padding:8px 14px; border-radius:8px; cursor:pointer; }
+button.primary{ background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+button.danger{ color:var(--bad); }
+button:disabled{ opacity:.55; cursor:default; }
+label{ display:block; font-size:.9rem; margin:12px 0 4px; color:var(--muted); }
+input{ width:100%; font:inherit; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
+.hint{ color:var(--muted); font-size:.86rem; margin:6px 0 0; }
+ol.steps{ padding-left:1.2em; margin:8px 0; } ol.steps li{ margin:4px 0; }
+code{ font-size:.88em; background:var(--bg); padding:1px 4px; border-radius:4px; border:1px solid var(--line); }
+details summary{ cursor:pointer; color:var(--muted); font-size:.9rem; }
+footer{ color:var(--muted); font-size:.8rem; margin-top:24px; }
+[hidden]{ display:none !important; }
+</style>
+<script src="kv.js"></script>
+</head>
+<body>
+<main>
+  <header><img src="icon.svg" alt=""><h1>Knowledge-Verse</h1></header>
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <section id="setup" class="card" hidden>
+    <h2>Connect this device</h2>
+    <p class="hint" style="margin-top:0">The app reads your notes from your private repository and writes your highlights back to it. It needs a GitHub token that can access <b>only</b> that repository. Make one token per device, so you can revoke one without the other.</p>
+    <ol class="steps">
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → new fine-grained token</a>.</li>
+      <li>Name it after this device; pick an expiration (one year is fine).</li>
+      <li>Repository access: <b>Only select repositories</b> → <code>Knowledge-Verse</code> (never the materials repo).</li>
+      <li>Permissions → Repository → <b>Contents: Read and write</b>. Nothing else.</li>
+      <li>Generate, copy, paste below.</li>
+    </ol>
+    <label for="inToken">Token</label>
+    <input id="inToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+    <label for="inDevice">Name of this device (your highlights are saved as <code>device-&lt;name&gt;.json</code>)</label>
+    <input id="inDevice" autocomplete="off" spellcheck="false" placeholder="laptop">
+    <details style="margin-top:12px"><summary>Repository (change only if it moved)</summary>
+      <label for="inOwner">Owner</label><input id="inOwner" autocomplete="off" spellcheck="false">
+      <label for="inRepo">Repository</label><input id="inRepo" autocomplete="off" spellcheck="false">
+    </details>
+    <div class="row"><button id="btnConnect" class="primary">Connect and download notes</button><button id="btnCancelSetup" hidden>Cancel</button></div>
+    <p class="hint">The token stays in this browser on this device. Anyone who can use this browser profile can use it, so keep the device locked.</p>
+  </section>
+
+  <section id="courses"></section>
+
+  <div id="actions" class="row" hidden>
+    <button id="btnUpdate">Check for new notes</button>
+    <button id="btnInstall" hidden>Install app</button>
+    <button id="btnSettings">Settings</button>
+  </div>
+
+  <section id="settings" class="card" hidden style="margin-top:12px">
+    <h2>Settings</h2>
+    <p id="setInfo" class="hint" style="margin-top:0"></p>
+    <div class="row">
+      <button id="btnChange">Change token or device name</button>
+      <button id="btnTest">Test connection</button>
+    </div>
+    <div class="row">
+      <button id="btnForget" class="danger">Remove notes and token from this device</button>
+    </div>
+    <p class="hint">Removing keeps your highlights in this browser (and on GitHub once synced); it deletes only the downloaded notes and the token.</p>
+  </section>
+
+  <footer id="foot"></footer>
+</main>
+<script>
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const when = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
+  const status = (msg, cls = '') => { const s = $('#status'); s.textContent = msg; s.className = cls; };
+  const APP_VERSION = "2026-10-09-a3626a82";
+
+  /* ---------- service worker: offline ---------- */
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => status('Offline mode unavailable: ' + e.message, 'bad'));
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#btnInstall').hidden = false; });
+  $('#btnInstall').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; $('#btnInstall').hidden = true; };
+
+  /* ---------- course list ---------- */
+  function render() {
+    const d = KV.distState(), have = KV.cachedShas(), box = $('#courses');
+    const list = (d.index && d.index.courses) || [];
+    if (!list.length) { box.innerHTML = KV.configured() ? '<div class="card hint">No notes on this device yet.</div>' : ''; }
+    else box.innerHTML = list.map(c => {
+      const ok = have[c.id] === c.sha256, sy = KV.read('kv:sync:' + c.id, {});
+      const sync = !KV.configured() ? '' : sy.error ? '<span class="dot bad"></span>sync failed' : sy.localDirty ? '<span class="dot warn"></span>highlights waiting to sync' : sy.last ? '<span class="dot ok"></span>highlights synced ' + esc(when(sy.last)) : '';
+      return '<a class="card course' + (have[c.id] ? '' : ' missing') + '" href="' + esc(KV.courseUrl(c.id)) + '">' +
+        '<div><div><span class="code">' + esc(c.code) + '</span> <span class="title">' + esc(c.title) + '</span></div>' +
+        '<div class="meta">' + (c.contentVersion ? 'content v' + c.contentVersion + ' · ' : '') + c.concepts + ' concepts · ' + (c.bytes / 1048576).toFixed(1) + ' MB' +
+        (ok ? '' : have[c.id] ? ' · <b>older copy</b>' : ' · not downloaded') + '</div>' + (sync ? '<div class="meta">' + sync + '</div>' : '') + '</div>' +
+        '<span class="go" aria-hidden="true">›</span></a>';
+    }).join('');
+    $('#actions').hidden = !KV.configured();
+    const s = KV.settings();
+    $('#setInfo').innerHTML = 'Repository <b>' + esc(s.owner + '/' + s.repo) + '</b> · this device: <b>' + esc(s.device || '—') + '</b>' +
+      ' · highlights go to <code>courses/&lt;id&gt;/annotations/device-' + esc(s.device) + '.json</code>';
+    $('#foot').textContent = 'App ' + (APP_VERSION.startsWith('__') ? 'dev' : APP_VERSION) + (d.index ? ' · notes built ' + when(d.index.built) + ' from ' + String(d.index.source || '').slice(0, 7) : '') + ' · last check ' + when(d.checked);
+  }
+
+  async function update(manual) {
+    if (!KV.configured()) return;
+    if (navigator.onLine === false) { status('Offline: showing the notes saved on this device.'); return; }
+    const b = $('#btnUpdate'); b.disabled = true;
+    try {
+      const r = await KV.update(msg => status(msg));
+      render();
+      const parts = [];
+      if (r.changed.length) parts.push('Downloaded ' + r.changed.length + ' course(s).');
+      if (r.removed.length) parts.push('Removed ' + r.removed.length + ' course(s) no longer published.');
+      if (r.warnings.length) { status(parts.concat(r.warnings).join(' '), 'bad'); return; }
+      status(parts.length ? parts.join(' ') + ' Ready offline.' : (manual ? 'Up to date.' : 'Up to date · ready offline.'), 'ok');
+    } catch (e) { status((e.message || String(e)) + (KV.distState().index ? ' Showing the copy on this device.' : ''), 'bad'); }
+    finally { b.disabled = false; }
+  }
+
+  /* ---------- setup and settings ---------- */
+  function showSetup(on, canCancel) {
+    $('#setup').hidden = !on; $('#btnCancelSetup').hidden = !canCancel;
+    if (on) {
+      const s = KV.settings();
+      $('#inToken').value = ''; $('#inToken').placeholder = s.token ? 'leave empty to keep the current token' : 'github_pat_…';
+      $('#inDevice').value = s.device || KV.guessDevice(); $('#inOwner').value = s.owner; $('#inRepo').value = s.repo;
+    }
+  }
+  $('#btnConnect').onclick = async () => {
+    const prev = KV.settings();
+    const token = $('#inToken').value.trim() || prev.token, device = KV.cleanDevice($('#inDevice').value);
+    if (!token) { status('Paste a token first.', 'bad'); return; }
+    if (!device) { status('Give this device a name (letters, digits, dashes).', 'bad'); return; }
+    KV.saveSettings({ token, device, owner: $('#inOwner').value.trim() || prev.owner, repo: $('#inRepo').value.trim() || prev.repo });
+    $('#btnConnect').disabled = true; status('Checking the token…');
+    try {
+      const v = await KV.verify();
+      if (!v.private) throw new Error(v.name + ' is public: the app only works with a private repository.');
+      if (!v.push) throw new Error('The token can read ' + v.name + ' but not write to it: give it "Contents: Read and write".');
+      showSetup(false); render(); await update(false);
+    } catch (e) { KV.saveSettings({ token: prev.token, device: prev.device, owner: prev.owner, repo: prev.repo }); status(e.message || String(e), 'bad'); }
+    finally { $('#btnConnect').disabled = false; }
+  };
+  $('#btnCancelSetup').onclick = () => { showSetup(false); render(); };
+  $('#btnSettings').onclick = () => { $('#settings').hidden = !$('#settings').hidden; render(); };
+  $('#btnChange').onclick = () => { $('#settings').hidden = true; showSetup(true, true); };
+  $('#btnTest').onclick = async () => {
+    status('Testing…');
+    try { const v = await KV.verify(); status('Connected to ' + v.name + (v.private ? ' (private)' : ' (PUBLIC!)') + (v.push ? ', can write' : ', read only') + (v.dist ? ', notes published.' : ', no notes published yet.'), v.private && v.push ? 'ok' : 'bad'); }
+    catch (e) { status(e.message || String(e), 'bad'); }
+  };
+  $('#btnForget').onclick = async () => {
+    const waiting = ((KV.distState().index || {}).courses || []).filter(c => KV.read('kv:sync:' + c.id, {}).localDirty).map(c => c.code);
+    if (!confirm('Remove the downloaded notes and the GitHub token from this device?' + (waiting.length ? '\n\nHighlights in ' + waiting.join(', ') + ' are not on GitHub yet. They stay in this browser and sync after you reconnect.' : ''))) return;
+    await KV.forgetNotes(); KV.saveSettings({ token: '' }); $('#settings').hidden = true; render(); showSetup(true, false); status('Removed. Connect again to read.');
+  };
+  $('#btnUpdate').onclick = () => update(true);
+  window.addEventListener('online', () => update(false));
+
+  /* ---------- start ---------- */
+  render();
+  if (!KV.configured()) { showSetup(true, false); status('Not connected yet.'); }
+  else update(false);
+})();
+</script>
+</body>
+</html>
