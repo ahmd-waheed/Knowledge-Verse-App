@@ -142,10 +142,15 @@
   /* ---------- annotations in the repo: courses/<id>/annotations/*.json ---------- */
   const annDir = id => 'courses/' + id + '/annotations';
   const deviceFile = id => annDir(id) + '/device-' + settings().device + '.json';
-  async function listAnnotations(id) {
-    const list = await api(repoPath() + '/contents/' + annDir(id) + '?ref=' + encodeURIComponent(settings().branch), { allow404: true });
+  async function listJson(dir) {
+    const list = await api(repoPath() + '/contents/' + dir + '?ref=' + encodeURIComponent(settings().branch), { allow404: true });
     return (Array.isArray(list) ? list : []).filter(e => e.type === 'file' && /\.json$/i.test(e.name)).map(e => ({ name: e.name, path: e.path, sha: e.sha }));
   }
+  const listAnnotations = id => listJson(annDir(id));
+  /* ---------- one legend for every course (I-32): annotations/legend/device-<name>.json ---------- */
+  const LEGEND_DIR = 'annotations/legend';
+  const legendFile = () => LEGEND_DIR + '/device-' + settings().device + '.json';
+  const listLegends = () => listJson(LEGEND_DIR);
   async function putFile(path, text, sha, message, keepalive) {
     const body = { message, content: bytesToB64(new TextEncoder().encode(text)), branch: settings().branch };
     if (sha) body.sha = sha;
@@ -155,5 +160,5 @@
   }
 
   window.KV = { settings, saveSettings, configured, cleanDevice, guessDevice, api, ApiError, verify, update, forgetNotes, prepare, trace, dropTraces,
-                distState, cachedShas, courseUrl, root: ROOT, listAnnotations, blobText, putFile, deviceFile, read, write };
+                distState, cachedShas, courseUrl, root: ROOT, listAnnotations, listLegends, legendFile, blobText, putFile, deviceFile, read, write };
 })();

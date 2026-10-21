@@ -4,7 +4,9 @@
    courses/<id>/annotations/ from GitHub into them, and writes this device's complete set back to
    courses/<id>/annotations/device-<name>.json (one file per device, so devices never overwrite each other).
    When: on opening, when the page comes back into view, 90 s after the last change, when the page is hidden,
-   when the connection returns, and on Save / Ctrl+S. It also checks for a newer build of the notes. */
+   when the connection returns, and on Save / Ctrl+S. It also checks for a newer build of the notes.
+   The highlight legend is one for every course (I-32): besides each course's file, this device writes its legend to
+   annotations/legend/device-<name>.json and every course merges all of those (newest name or color wins). */
 (function () {
   'use strict';
   const KV = window.KV;
@@ -13,6 +15,8 @@
   const IDLE_PUSH_MS = 90 * 1000, PULL_EVERY_MS = 60 * 1000, UPDATE_EVERY_MS = 5 * 60 * 1000;
   const st = Object.assign({ seen: {}, deviceSha: null, pushedHash: null, localDirty: false, last: 0, error: '' }, KV.read(SKEY, {}));
   const persist = () => KV.write(SKEY, st);
+  const LKEY = 'kv:legend-sync';   // the shared legend's sync state: one for the device, not per course
+  const lst = () => Object.assign({ seen: {}, sha: null, base: null, dirty: false, device: null }, KV.read(LKEY, {}));
   if (st.device !== KV.settings().device) {   // first run here, or the device was renamed: start this device's own file
     if (st.device) st.localDirty = true;
     st.device = KV.settings().device; st.deviceSha = null; persist();
@@ -65,6 +69,39 @@
     return merged;
   }
 
+  /* ---------- the legend shared by every course (I-32) ---------- */
+  const legendHash = () => hash(JSON.stringify(KB.annotations.legend()));
+  const legendText = () => JSON.stringify(Object.assign({}, KB.annotations.legend(), { savedAt: new Date().toISOString(), savedBy: 'reading app, device ' + KV.settings().device }), null, 1);
+  const hasLegend = () => !!(KB && KB.annotations && KB.annotations.legend && KB.annotations.mergeLegend);   // engine 5.1+; older builds skip it
+  async function pullLegend() {
+    if (!hasLegend()) return;
+    const L = lst(), mine = KV.legendFile().split('/').pop();
+    if (L.device !== KV.settings().device) { if (L.device) L.dirty = true; L.device = KV.settings().device; L.sha = null; }
+    for (const f of await KV.listLegends()) {
+      if (f.name === mine) L.sha = f.sha;
+      if (L.seen[f.name] === f.sha) continue;
+      try { const obj = JSON.parse(await KV.blobText(f.sha)); merging = true; try { KB.annotations.mergeLegend(obj); } finally { merging = false; } }
+      catch (e) { console.warn('[kv] skipped unreadable ' + f.path, e); }
+      L.seen[f.name] = f.sha;
+    }
+    if (!L.dirty) L.base = legendHash();   // what GitHub holds now; only a change made here after this is written
+    KV.write(LKEY, L);
+  }
+  async function pushLegend(keepalive = false) {
+    if (!hasLegend()) return false;
+    let L = lst(); if (!L.dirty) return false;   // only a legend change made on this device starts a write
+    const msg = 'Legend from ' + KV.settings().device + ' (' + KB.annotations.legend().categories.length + ' categories)';
+    let sha;
+    try { sha = await KV.putFile(KV.legendFile(), legendText(), L.sha, msg, keepalive); }
+    catch (e) {
+      if (e.status !== 409 && e.status !== 422) throw e;
+      await pullLegend(); L = lst();   // written from another course or browser meanwhile: merge, then write the union
+      sha = await KV.putFile(KV.legendFile(), legendText(), L.sha, msg, keepalive);
+    }
+    L = lst(); L.sha = sha; L.seen[KV.legendFile().split('/').pop()] = sha; L.base = legendHash(); L.dirty = false; KV.write(LKEY, L);
+    return true;
+  }
+
   /* ---------- push: this device's complete set → its own file ---------- */
   async function push(keepalive = false) {
     if (!st.localDirty) return false;   // only this device's own changes start a write
@@ -92,7 +129,9 @@
     busy = (async () => {
       try {
         const merged = await pull();
+        await pullLegend();
         const pushed = await push();
+        await pushLegend();
         st.error = ''; st.last = Date.now(); persist();
         if (manual || merged) toast(merged ? 'Merged notes from ' + merged + ' other file(s) on GitHub.' + (pushed ? ' Synced ✓' : '') : 'Synced ✓ ' + KV.deviceFile(COURSE));
       } catch (e) {
@@ -133,6 +172,7 @@
   /* ---------- wiring ---------- */
   window.addEventListener('kb:ready', () => {
     KB = window.KB;
+    if (hasLegend()) { const L = lst(); if (!L.base) { L.base = legendHash(); KV.write(LKEY, L); } }   // first open on this device, maybe offline: the legend to compare edits with
     if (window.KB_ID && window.KB_ID !== COURSE) console.warn('[kv] page name and course id differ:', COURSE, window.KB_ID);
     const tools = document.querySelector('#sidebar .tools');
     if (tools && !document.getElementById('kvHome')) {   // a way back to the course list, styled like the engine's own buttons
@@ -147,11 +187,15 @@
   window.addEventListener('kb:annotations', () => {
     if (merging) return;   // changes that came from GitHub are not this device's to push
     st.localDirty = true; persist(); refreshUI();
+    if (hasLegend()) { const L = lst(); if (!L.dirty && L.base && L.base !== legendHash()) { L.dirty = true; KV.write(LKEY, L); } }   // the legend changed here
     clearTimeout(timer); timer = setTimeout(() => syncNow(), IDLE_PUSH_MS);
   });
   document.addEventListener('visibilitychange', () => {
     if (!KB) return;
-    if (document.visibilityState === 'hidden') { if (st.localDirty && canSync() && !busy) push(true).then(() => { st.last = Date.now(); st.error = ''; persist(); }).catch(() => {}); }
+    if (document.visibilityState === 'hidden') {
+      if (st.localDirty && canSync() && !busy) push(true).then(() => { st.last = Date.now(); st.error = ''; persist(); }).catch(() => {});
+      if (lst().dirty && canSync() && !busy) pushLegend(true).catch(() => {});
+    }
     else {
       if (Date.now() - lastPull > PULL_EVERY_MS) syncNow();
       if (Date.now() - lastUpdate > UPDATE_EVERY_MS) checkUpdate();
