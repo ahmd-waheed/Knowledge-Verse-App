@@ -102,7 +102,40 @@
     if (!only) for (const id of Object.keys(have)) if (!index.courses.some(c => c.id === id)) { await cache.delete(courseUrl(id)); delete have[id]; removed.push(id); }
     write(KEYS.cached, have);
     write(KEYS.dist, { tree: tree.sha, index, checked: Date.now() });   // courses are compared one by one, so a partial update is safe
+    try { await pruneTraces(index); } catch (e) { console.warn('[kv] prune traced pages', e); }
     return { changed, removed, index, warnings };
+  }
+  /* ---------- traced pages of my typed files (I-34): fetched only when a file is opened, then kept offline ---------- */
+  const traceUrl = (path, sha) => new URL('read/' + path.replace(/\.svgz$/, '.svg') + '?v=' + String(sha).slice(0, 16), ROOT).href;
+  async function gunzip(buf) { return new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()); }
+  /** The traced page n of a file, as SVG text: from this device if it is here, else from the dist branch (then kept). */
+  async function trace(cid, doc, n) {
+    const c = ((distState().index || {}).courses || []).find(x => x.id === cid);
+    const e = c && c.traces && c.traces[doc] && c.traces[doc][n - 1]; if (!e) return null;
+    const url = traceUrl(e.path, e.sha256), cache = await caches.open(NOTES_CACHE);
+    const hit = await cache.match(url); if (hit) return hit.text();
+    if (!configured() || navigator.onLine === false) return null;
+    const s = settings();
+    let r;
+    try { r = await fetch(API + repoPath() + '/contents/' + e.path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(s.distBranch),
+                          { headers: { Accept: 'application/vnd.github.raw', Authorization: 'Bearer ' + s.token }, cache: 'no-cache' }); }
+    catch (x) { return null; }
+    if (!r.ok) throw new ApiError(r.status, 'GitHub: traced page ' + e.path + ': error ' + r.status);
+    const bytes = await gunzip(await r.arrayBuffer());
+    if (await sha256(bytes) !== e.sha256) throw new ApiError(0, 'traced page corrupted in transit: ' + e.path);
+    const text = new TextDecoder().decode(bytes);
+    await cache.put(url, new Response(text, { headers: { 'Content-Type': 'image/svg+xml' } }));
+    return text;
+  }
+  /** Forget a file's traced pages on this device (after I removed the traced version), or all of a course's. */
+  async function dropTraces(cid, doc) {
+    const cache = await caches.open(NOTES_CACHE), pre = new URL('read/files/' + cid + '/' + (doc ? doc + '/' : ''), ROOT).href;
+    for (const k of await cache.keys()) if (k.url.startsWith(pre)) await cache.delete(k);
+  }
+  async function pruneTraces(index) {   // keep only the traced pages the current build lists
+    const cache = await caches.open(NOTES_CACHE), keep = new Set(), pre = new URL('read/files/', ROOT).href;
+    (index.courses || []).forEach(c => Object.values(c.traces || {}).forEach(l => l.forEach(e => keep.add(traceUrl(e.path, e.sha256)))));
+    for (const k of await cache.keys()) if (k.url.startsWith(pre) && !keep.has(k.url)) await cache.delete(k);
   }
   async function forgetNotes() { await caches.delete(NOTES_CACHE); localStorage.removeItem(KEYS.cached); localStorage.removeItem(KEYS.dist); }
 
@@ -121,6 +154,6 @@
     return r && r.content ? r.content.sha : null;
   }
 
-  window.KV = { settings, saveSettings, configured, cleanDevice, guessDevice, api, ApiError, verify, update, forgetNotes, prepare,
+  window.KV = { settings, saveSettings, configured, cleanDevice, guessDevice, api, ApiError, verify, update, forgetNotes, prepare, trace, dropTraces,
                 distState, cachedShas, courseUrl, root: ROOT, listAnnotations, blobText, putFile, deviceFile, read, write };
 })();

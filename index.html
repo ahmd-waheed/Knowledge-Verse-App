@@ -109,7 +109,7 @@ footer{ color:var(--muted); font-size:.8rem; margin-top:24px; }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const when = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
   const status = (msg, cls = '') => { const s = $('#status'); s.textContent = msg; s.className = cls; };
-  const APP_VERSION = "2026-10-09-a3626a82";
+  const APP_VERSION = "2026-10-21-ff81e989";
 
   /* ---------- service worker: offline ---------- */
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => status('Offline mode unavailable: ' + e.message, 'bad'));

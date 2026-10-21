@@ -39,7 +39,9 @@
       if (st.localDirty) return { text: '⟳ Sync •', title: (navigator.onLine === false ? 'Offline. ' : '') + 'Changes kept in this browser, not yet on GitHub. They sync automatically; click (or Ctrl+S) to sync now.\nLast synced ' + time(st.last) + '.' };
       return { text: '⟳ Synced', title: 'All notes are on GitHub (' + where + '). Last synced ' + time(st.last) + '. Click to sync now.' };
     },
-    pending() { return false; }   // nothing is lost on closing: the browser keeps every change until the next sync
+    pending() { return false; },   // nothing is lost on closing: the browser keeps every change until the next sync
+    trace(doc, n) { return KV.trace(COURSE, doc, n); },   // I-34: a traced page of one of my files (SVG text, or null when not available)
+    dropTraces(doc) { return KV.dropTraces(COURSE, doc); }   // I-34: I removed a file's traced version: forget it on this device
   };
   const refreshUI = () => { try { KB && KB.annotations.refreshSaveUI(); } catch (e) {} };
 
