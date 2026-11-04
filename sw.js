@@ -1,11 +1,11 @@
 /* Knowledge-Verse reading app: service worker (offline).
    - The app itself (pages, scripts, icons, the MathJax copy) is cached at install, under a name that changes
      with every published version, so a new version replaces the old one in one step.
-   - Course pages read/<id>.html are never on the server: kv.js stores them in the 'kv-notes' cache after
+   - Course pages read/<id>.html (and my own pages read/pages/<id>.html, D-36) are never on the server: kv.js stores them in the 'kv-notes' cache after
      downloading them from the private repo, and this worker serves them from there.
    - Requests to other sites (api.github.com) are not touched.
    tools/publish_app.py fills in the version and the file list when it publishes the app. */
-const VERSION = "2026-10-21-47ac5113";
+const VERSION = "2026-11-04-7c3bc650";
 const APP_CACHE = 'kv-app-' + VERSION;
 const NOTES_CACHE = 'kv-notes';
 const PRECACHE = [
@@ -90,7 +90,7 @@ self.addEventListener('activate', e => {
 });
 
 const scope = () => new URL(self.registration.scope);
-function notDownloaded(id) {
+function notDownloaded(id, inPages) {
   const html = '<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<title>Not downloaded</title><body style="font:16px/1.5 system-ui,sans-serif;max-width:34em;margin:3em auto;padding:0 16px">' +
     '<h1 style="font-size:1.3em">' + id.replace(/[<&]/g, '') + ' is not on this device yet</h1>' +
@@ -102,9 +102,9 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== self.location.origin || !url.pathname.startsWith(scope().pathname)) return;
   const rel = url.pathname.slice(scope().pathname.length);
-  if (/^read\/[^/]+\.html$/.test(rel)) {   // a course page: only ever from the notes cache
+  if (/^read\/(pages\/)?[^/]+\.html$/.test(rel)) {   // a course page, or one of my pages (D-36): only ever from the notes cache
     const key = new URL(url.pathname, url.origin).href;
-    e.respondWith(caches.open(NOTES_CACHE).then(c => c.match(key)).then(r => r || notDownloaded(decodeURIComponent(rel.slice(5, -5)))));
+    e.respondWith(caches.open(NOTES_CACHE).then(c => c.match(key)).then(r => r || notDownloaded(decodeURIComponent(rel.split('/').pop().slice(0, -5)), rel.startsWith('read/pages/'))));
     return;
   }
   // the app's own files: cache first (they change only with a new version), network as a fallback

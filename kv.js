@@ -7,7 +7,7 @@
   'use strict';
   const API = 'https://api.github.com';
   const NOTES_CACHE = 'kv-notes';
-  const KEYS = { settings: 'kv:settings', dist: 'kv:dist', cached: 'kv:cached' };
+  const KEYS = { settings: 'kv:settings', dist: 'kv:dist', cached: 'kv:cached', pages: 'kv:cachedPages' };
   const DEFAULTS = { owner: 'ahmd-waheed', repo: 'Knowledge-Verse', branch: 'main', distBranch: 'dist', token: '', device: '' };
 
   const read = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } };
@@ -55,10 +55,13 @@
   /* ---------- offline copies of the notes ---------- */
   const distState = () => read(KEYS.dist, { tree: null, index: null, checked: 0 });
   const cachedShas = () => read(KEYS.cached, {});
+  const cachedPages = () => read(KEYS.pages, {});
   // The folder holding index.html, kv.js and host.js (course pages live one level down, in read/). Taken from
   // this script's own address while it loads, so it is right on the home page and on course pages alike.
   const ROOT = new URL('./', (document.currentScript && document.currentScript.src) || location.href).href;
   const courseUrl = id => new URL('read/' + encodeURIComponent(id) + '.html', ROOT).href;
+  // D-36: my own pages that are not course notes (the Semester Planner), in their own sections on the home page
+  const pageUrl = id => new URL('read/pages/' + encodeURIComponent(id) + '.html', ROOT).href;
 
   /** A built course file as the app serves it: the reading-app host script runs before the engine, and math
       comes from the app's own MathJax copy, so the page works offline. */
@@ -72,7 +75,7 @@
   }
 
   /** Downloads whatever changed on the dist branch. onProgress(text) reports each step.
-      Returns { changed:[ids], removed:[ids], index, warnings:[...] }. Offline or unconfigured: throws ApiError. */
+      Returns { changed:[course ids], changedPages:[page ids], removed:[ids], index, warnings:[...] }. Offline or unconfigured: throws ApiError. */
   async function update(onProgress = () => {}, only = null) {
     const st = distState();
     onProgress('Checking GitHub for new notes…');
@@ -101,9 +104,23 @@
     const removed = [];
     if (!only) for (const id of Object.keys(have)) if (!index.courses.some(c => c.id === id)) { await cache.delete(courseUrl(id)); delete have[id]; removed.push(id); }
     write(KEYS.cached, have);
+    const pages = index.pages || [], hp = cachedPages(), changedPages = [];   // D-36: pages are self-contained, served as published
+    if (!only) {
+      for (const pg of pages) {
+        if (hp[pg.id] === pg.sha256 && await cache.match(pageUrl(pg.id))) continue;
+        const sha = files.get(pg.file); if (!sha) { warnings.push(pg.title + ': file missing on the dist branch'); continue; }
+        onProgress('Downloading ' + pg.title + '…');
+        const bytes = await blobBytes(sha);
+        if (await sha256(bytes) !== pg.sha256) { warnings.push(pg.title + ': download corrupted, kept the previous copy'); continue; }
+        await cache.put(pageUrl(pg.id), new Response(bytes, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+        hp[pg.id] = pg.sha256; write(KEYS.pages, hp); changedPages.push(pg.id);
+      }
+      for (const id of Object.keys(hp)) if (!pages.some(pg => pg.id === id)) { await cache.delete(pageUrl(id)); delete hp[id]; removed.push(id); }
+      write(KEYS.pages, hp);
+    }
     write(KEYS.dist, { tree: tree.sha, index, checked: Date.now() });   // courses are compared one by one, so a partial update is safe
     try { await pruneTraces(index); } catch (e) { console.warn('[kv] prune traced pages', e); }
-    return { changed, removed, index, warnings };
+    return { changed, changedPages, removed, index, warnings };
   }
   /* ---------- traced pages of my typed files (I-34): fetched only when a file is opened, then kept offline ---------- */
   const traceUrl = (path, sha) => new URL('read/' + path.replace(/\.svgz$/, '.svg') + '?v=' + String(sha).slice(0, 16), ROOT).href;
@@ -137,7 +154,7 @@
     (index.courses || []).forEach(c => Object.values(c.traces || {}).forEach(l => l.forEach(e => keep.add(traceUrl(e.path, e.sha256)))));
     for (const k of await cache.keys()) if (k.url.startsWith(pre) && !keep.has(k.url)) await cache.delete(k);
   }
-  async function forgetNotes() { await caches.delete(NOTES_CACHE); localStorage.removeItem(KEYS.cached); localStorage.removeItem(KEYS.dist); }
+  async function forgetNotes() { await caches.delete(NOTES_CACHE); localStorage.removeItem(KEYS.cached); localStorage.removeItem(KEYS.pages); localStorage.removeItem(KEYS.dist); }
 
   /* ---------- annotations in the repo: courses/<id>/annotations/*.json ---------- */
   const annDir = id => 'courses/' + id + '/annotations';
@@ -160,5 +177,5 @@
   }
 
   window.KV = { settings, saveSettings, configured, cleanDevice, guessDevice, api, ApiError, verify, update, forgetNotes, prepare, trace, dropTraces,
-                distState, cachedShas, courseUrl, root: ROOT, listAnnotations, listLegends, legendFile, blobText, putFile, deviceFile, read, write };
+                distState, cachedShas, cachedPages, courseUrl, pageUrl, root: ROOT, listAnnotations, listLegends, legendFile, blobText, putFile, deviceFile, read, write };
 })();

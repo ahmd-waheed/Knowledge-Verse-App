@@ -27,13 +27,13 @@ h2{ font-size:1.05rem; margin:0 0 8px; }
 #status{ color:var(--muted); font-size:.92rem; min-height:1.5em; margin:0 0 16px; }
 #status.bad{ color:var(--bad); } #status.ok{ color:var(--ok); }
 .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:0 0 12px; }
-.course{ display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit; }
-.course:hover{ border-color:var(--accent); }
-.course .code{ font-weight:700; font-size:1.05rem; }
-.course .title{ color:var(--fg); }
-.course .meta{ color:var(--muted); font-size:.85rem; }
-.course .go{ margin-left:auto; color:var(--accent); font-size:1.4rem; }
-.course.missing{ opacity:.6; pointer-events:none; }
+.course, .pg{ display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit; }
+.course:hover, .pg:hover{ border-color:var(--accent); }
+.course .code, .pg .code{ font-weight:700; font-size:1.05rem; }
+.course .title, .pg .title{ color:var(--fg); }
+.course .meta, .pg .meta{ color:var(--muted); font-size:.85rem; }
+.course .go, .pg .go{ margin-left:auto; color:var(--accent); font-size:1.4rem; }
+.course.missing, .pg.missing{ opacity:.6; pointer-events:none; }
 .dot{ display:inline-block; width:.55em; height:.55em; border-radius:50%; background:var(--muted); margin-right:.35em; vertical-align:.08em; }
 .dot.ok{ background:var(--ok); } .dot.warn{ background:var(--warn); } .dot.bad{ background:var(--bad); }
 .row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
@@ -48,6 +48,7 @@ ol.steps{ padding-left:1.2em; margin:8px 0; } ol.steps li{ margin:4px 0; }
 code{ font-size:.88em; background:var(--bg); padding:1px 4px; border-radius:4px; border:1px solid var(--line); }
 details summary{ cursor:pointer; color:var(--muted); font-size:.9rem; }
 footer{ color:var(--muted); font-size:.8rem; margin-top:24px; }
+h2.sec{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:20px 2px 8px; }
 [hidden]{ display:none !important; }
 </style>
 <script src="kv.js"></script>
@@ -80,6 +81,7 @@ footer{ color:var(--muted); font-size:.8rem; margin-top:24px; }
   </section>
 
   <section id="courses"></section>
+  <section id="pages"></section>
 
   <div id="actions" class="row" hidden>
     <button id="btnUpdate">Check for new notes</button>
@@ -109,7 +111,7 @@ footer{ color:var(--muted); font-size:.8rem; margin-top:24px; }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const when = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
   const status = (msg, cls = '') => { const s = $('#status'); s.textContent = msg; s.className = cls; };
-  const APP_VERSION = "2026-10-21-47ac5113";
+  const APP_VERSION = "2026-11-04-7c3bc650";
 
   /* ---------- service worker: offline ---------- */
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => status('Offline mode unavailable: ' + e.message, 'bad'));
@@ -132,6 +134,19 @@ footer{ color:var(--muted); font-size:.8rem; margin-top:24px; }
         (ok ? '' : have[c.id] ? ' · <b>older copy</b>' : ' · not downloaded') + '</div>' + (sync ? '<div class="meta">' + sync + '</div>' : '') + '</div>' +
         '<span class="go" aria-hidden="true">›</span></a>';
     }).join('');
+    // D-36: my own pages that are not course notes, one section each (first: Planner)
+    const pages = (d.index && d.index.pages) || [], hp = KV.cachedPages(), secs = [];
+    pages.forEach(p => { if (!secs.includes(p.section)) secs.push(p.section); });
+    if (pages.length && list.length) box.insertAdjacentHTML('afterbegin', '<h2 class="sec">Courses</h2>');
+    $('#pages').innerHTML = secs.map(sec => '<h2 class="sec">' + esc(sec) + '</h2>' + pages.filter(p => p.section === sec).map(p => {
+      const ok = hp[p.id] === p.sha256;
+      return '<a class="card pg' + (hp[p.id] ? '' : ' missing') + '" data-page="' + esc(p.id) + '" href="' + esc(KV.pageUrl(p.id)) + '">' +
+        '<div><div><span class="title"><b>' + esc(p.title) + '</b></span></div>' +
+        (p.blurb ? '<div class="meta">' + esc(p.blurb) + '</div>' : '') +
+        '<div class="meta">' + (p.updated ? 'updated ' + esc(new Date(p.updated).toLocaleDateString([], { dateStyle: 'medium' })) : '') +
+        (ok ? '' : hp[p.id] ? ' · <b>older copy</b>' : ' · not downloaded') + '</div></div>' +
+        '<span class="go" aria-hidden="true">›</span></a>';
+    }).join('')).join('');
     $('#actions').hidden = !KV.configured();
     const s = KV.settings();
     $('#setInfo').innerHTML = 'Repository <b>' + esc(s.owner + '/' + s.repo) + '</b> · this device: <b>' + esc(s.device || '—') + '</b>' +
@@ -148,7 +163,8 @@ footer{ color:var(--muted); font-size:.8rem; margin-top:24px; }
       render();
       const parts = [];
       if (r.changed.length) parts.push('Downloaded ' + r.changed.length + ' course(s).');
-      if (r.removed.length) parts.push('Removed ' + r.removed.length + ' course(s) no longer published.');
+      if (r.changedPages && r.changedPages.length) parts.push('Downloaded ' + r.changedPages.length + ' page(s).');
+      if (r.removed.length) parts.push('Removed ' + r.removed.length + ' course(s) or page(s) no longer published.');
       if (r.warnings.length) { status(parts.concat(r.warnings).join(' '), 'bad'); return; }
       status(parts.length ? parts.join(' ') + ' Ready offline.' : (manual ? 'Up to date.' : 'Up to date · ready offline.'), 'ok');
     } catch (e) { status((e.message || String(e)) + (KV.distState().index ? ' Showing the copy on this device.' : ''), 'bad'); }
