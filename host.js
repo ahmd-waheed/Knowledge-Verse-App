@@ -169,9 +169,20 @@
     b.append(go, x); document.body.appendChild(b);
   }
 
+  /* ---------- where I was: the app home offers "Continue" (D-38) ---------- */
+  function remember() {
+    try {
+      const id = KB && KB.currentConcept && KB.currentConcept(); if (!id) return;
+      const c = KB.concepts.get(id) || {};
+      KV.write('kv:last:' + COURSE, { hash: location.hash, id, title: c.title || id, t: Date.now() });
+    } catch (e) {}
+  }
+  window.addEventListener('hashchange', () => { if (KB) remember(); });
+
   /* ---------- wiring ---------- */
   window.addEventListener('kb:ready', () => {
     KB = window.KB;
+    remember();
     if (hasLegend()) { const L = lst(); if (!L.base) { L.base = legendHash(); KV.write(LKEY, L); } }   // first open on this device, maybe offline: the legend to compare edits with
     if (window.KB_ID && window.KB_ID !== COURSE) console.warn('[kv] page name and course id differ:', COURSE, window.KB_ID);
     const tools = document.querySelector('#sidebar .tools');

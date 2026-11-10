@@ -176,6 +176,67 @@
     return r && r.content ? r.content.sha : null;
   }
 
+  /* ---------- quick capture (D-38): thoughts for the next Claude session → captures/device-<name>.json ----------
+     Local-first like the annotations: a capture is kept in this browser at once and written to this device's own file in
+     the private repo when online. Sessions never edit that file; they record where each capture went in
+     captures/processed.json (tools/kv.py captures done), which the app reads to show "picked up". */
+  const CAP_DIR = 'captures', CAP_KEY = 'kv:captures';
+  const capFile = () => CAP_DIR + '/device-' + settings().device + '.json';
+  const capState = () => Object.assign({ items: [], others: {}, seen: {}, sha: null, dirty: false, processed: {} }, read(CAP_KEY, {}));
+  function captureAdd(text, course, kind) {
+    const s = capState(), it = { id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at: new Date().toISOString(),
+                                 course: course || '', kind: kind || 'note', text: String(text || '').trim() };
+    if (!it.text) return null;
+    s.items.push(it); s.dirty = true; write(CAP_KEY, s); return it;
+  }
+  function captureRemove(id) {   // a tombstone, so the removal reaches the repo too
+    const s = capState(), it = s.items.find(x => x.id === id); if (!it) return false;
+    it.deleted = true; it.text = ''; s.dirty = true; write(CAP_KEY, s); return true;
+  }
+  /** Every capture known on this device (this device's and the other devices'), newest first; .to says where a session took it. */
+  function captureList() {
+    const s = capState(), all = new Map();
+    Object.values(s.others).forEach(l => (l || []).forEach(it => all.set(it.id, it)));
+    s.items.forEach(it => all.set(it.id, Object.assign({ mine: true, unsynced: !!s.dirty }, it)));
+    return [...all.values()].filter(it => !it.deleted && it.text).map(it => Object.assign({}, it, { to: (s.processed[it.id] || {}).to || '' }))
+      .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+  }
+  let capBusy = null;
+  function syncCaptures(keepalive = false) {
+    if (capBusy) return capBusy;
+    capBusy = (async () => {
+      const mine = capFile().split('/').pop(), seen = capState().seen, got = {};
+      const list = await listJson(CAP_DIR);
+      for (const f of list) {
+        if (seen[f.name] === f.sha) continue;
+        try { got[f.name] = { sha: f.sha, obj: JSON.parse(await blobText(f.sha)) }; } catch (e) { got[f.name] = { sha: f.sha, obj: null }; }
+      }
+      let s = capState();   // read again: I may have captured something while the requests ran
+      for (const [name, g] of Object.entries(got)) {
+        s.seen[name] = g.sha; if (!g.obj) continue;
+        if (name === 'processed.json') s.processed = g.obj.processed || {};
+        else if (name === mine) {   // the same device name in another browser, or this device after its storage was cleared: keep both
+          const have = new Set(s.items.map(x => x.id)), theirs = g.obj.items || [];
+          theirs.forEach(it => { if (it && it.id && !have.has(it.id)) s.items.push(it); });
+          if (s.items.some(x => !theirs.some(y => y.id === x.id))) s.dirty = true;
+        }
+        else if (/^device-.+\.json$/.test(name)) s.others[name] = g.obj.items || [];
+      }
+      Object.keys(s.others).forEach(n => { if (!list.some(f => f.name === n)) delete s.others[n]; });
+      const remote = list.find(f => f.name === mine); s.sha = remote ? remote.sha : null;
+      write(CAP_KEY, s);
+      if (s.dirty) {
+        const sent = JSON.stringify(s.items), n = s.items.filter(x => !x.deleted).length;
+        const text = JSON.stringify({ format: 'kv-captures', schema: 1, items: s.items, savedAt: new Date().toISOString(), savedBy: 'reading app, device ' + settings().device }, null, 1);
+        const sha = await putFile(capFile(), text, s.sha, 'Captures from ' + settings().device + ' (' + n + ')', keepalive);
+        s = capState(); s.sha = sha; s.seen[mine] = sha; s.dirty = JSON.stringify(s.items) !== sent; write(CAP_KEY, s);
+      }
+      return true;
+    })().finally(() => { capBusy = null; });
+    return capBusy;
+  }
+
   window.KV = { settings, saveSettings, configured, cleanDevice, guessDevice, api, ApiError, verify, update, forgetNotes, prepare, trace, dropTraces,
-                distState, cachedShas, cachedPages, courseUrl, pageUrl, root: ROOT, listAnnotations, listLegends, legendFile, blobText, putFile, deviceFile, read, write };
+                distState, cachedShas, cachedPages, courseUrl, pageUrl, root: ROOT, listAnnotations, listLegends, legendFile, blobText, putFile, deviceFile, read, write,
+                captureAdd, captureRemove, captureList, syncCaptures, capState };
 })();

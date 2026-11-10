@@ -5,7 +5,7 @@
      downloading them from the private repo, and this worker serves them from there.
    - Requests to other sites (api.github.com) are not touched.
    tools/publish_app.py fills in the version and the file list when it publishes the app. */
-const VERSION = "2026-11-04-7c3bc650";
+const VERSION = "2026-11-10-9ed9d8de";
 const APP_CACHE = 'kv-app-' + VERSION;
 const NOTES_CACHE = 'kv-notes';
 const PRECACHE = [

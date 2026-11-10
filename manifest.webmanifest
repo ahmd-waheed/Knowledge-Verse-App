@@ -7,6 +7,10 @@
   "display": "standalone",
   "background_color": "#0b1120",
   "theme_color": "#1e293b",
+  "shortcuts": [
+    { "name": "Capture a thought", "short_name": "Capture", "url": "./index.html?capture=1" }
+  ],
+  "share_target": { "action": "./index.html", "method": "GET", "params": { "title": "title", "text": "text", "url": "url" } },
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },

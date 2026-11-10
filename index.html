@@ -49,6 +49,35 @@ code{ font-size:.88em; background:var(--bg); padding:1px 4px; border-radius:4px;
 details summary{ cursor:pointer; color:var(--muted); font-size:.9rem; }
 footer{ color:var(--muted); font-size:.8rem; margin-top:24px; }
 h2.sec{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:20px 2px 8px; }
+/* D-38: due soon, jump to a concept, continue reading, capture */
+.due{ list-style:none; margin:0; padding:0; }
+.due li{ display:flex; align-items:baseline; gap:10px; padding:7px 0; border-top:1px solid var(--line); }
+.due li:first-child{ border-top:0; padding-top:2px; }
+.due input{ width:auto; margin:0; transform:translateY(2px); accent-color:var(--accent); flex:none; }
+.due .when{ flex:none; min-width:5.6em; font-size:.82rem; font-weight:600; color:var(--muted); }
+.due .when.soon{ color:var(--warn); } .due .when.now{ color:var(--bad); }
+.due .what{ flex:1; min-width:0; } .due .what small{ display:block; color:var(--muted); font-size:.82rem; }
+.due li.key .what > span{ font-weight:650; }
+.due li.ticked .what, .due li.ticked .when{ text-decoration:line-through; opacity:.55; }
+.due a{ color:inherit; text-decoration:none; } .due a:hover{ text-decoration:underline; }
+#jump{ position:relative; margin:0 0 12px; }
+#jump input{ background:var(--card); border-radius:12px; padding:11px 12px; }
+#hits{ list-style:none; margin:6px 0 0; padding:4px; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+#hits a{ display:block; padding:8px 10px; border-radius:8px; color:inherit; text-decoration:none; }
+#hits a:hover, #hits li.on a{ background:var(--bg); outline:1px solid var(--line); }
+#hits small{ color:var(--muted); display:block; font-size:.8rem; }
+a.cont{ display:block; margin:-13px 0 12px; padding:9px 16px 9px; border:1px solid var(--line); border-top:1px dashed var(--line); border-radius:0 0 12px 12px;
+  background:var(--card); color:var(--accent); font-size:.88rem; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+a.cont:hover{ border-color:var(--accent); }
+.card.course.has-cont{ border-radius:12px 12px 0 0; margin-bottom:12px; }
+textarea, select{ width:100%; font:inherit; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
+textarea{ resize:vertical; min-height:2.9em; }
+#capture .row{ flex-wrap:nowrap; } #capture select{ flex:1; min-width:0; } #capture button{ flex:none; }
+#capList{ list-style:none; margin:10px 0 0; padding:0; }
+#capList li{ display:flex; gap:8px; align-items:baseline; padding:7px 0; border-top:1px solid var(--line); font-size:.92rem; }
+#capList .t{ flex:1; min-width:0; overflow-wrap:anywhere; } #capList small{ display:block; color:var(--muted); font-size:.8rem; }
+#capList small.ok{ color:var(--ok); }
+#capList button{ padding:2px 8px; border:0; background:transparent; color:var(--muted); }
 [hidden]{ display:none !important; }
 </style>
 <script src="kv.js"></script>
@@ -80,7 +109,27 @@ h2.sec{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:v
     <p class="hint">The token stays in this browser on this device. Anyone who can use this browser profile can use it, so keep the device locked.</p>
   </section>
 
+  <section id="today" class="card" hidden>
+    <h2>Due soon</h2>
+    <ul id="dueList" class="due"></ul>
+    <p id="dueNote" class="hint" hidden></p>
+  </section>
+
+  <div id="jump" hidden>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Jump to a concept in any course…  ( / )" aria-label="Jump to a concept in any course">
+    <ul id="hits" hidden></ul>
+  </div>
+
   <section id="courses"></section>
+
+  <section id="capture" class="card" hidden>
+    <h2>Capture</h2>
+    <p class="hint" style="margin:0 0 8px">A thought, a question or a to-do for the next Claude session. It is saved here at once and synced to your repository; the session picks it up and this list shows where it went.</p>
+    <textarea id="capText" rows="2" placeholder="e.g. why does the costate jump at a corner?  ·  HW6 is due Fri 11/20"></textarea>
+    <div class="row"><select id="capCourse" aria-label="Course"></select><button id="capSave" class="primary">Save</button></div>
+    <ul id="capList"></ul>
+  </section>
+
   <section id="pages"></section>
 
   <div id="actions" class="row" hidden>
@@ -111,7 +160,7 @@ h2.sec{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:v
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const when = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
   const status = (msg, cls = '') => { const s = $('#status'); s.textContent = msg; s.className = cls; };
-  const APP_VERSION = "2026-11-04-7c3bc650";
+  const APP_VERSION = "2026-11-10-9ed9d8de";
 
   /* ---------- service worker: offline ---------- */
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => status('Offline mode unavailable: ' + e.message, 'bad'));
@@ -128,12 +177,16 @@ h2.sec{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:v
     else box.innerHTML = list.map(c => {
       const ok = have[c.id] === c.sha256, sy = KV.read('kv:sync:' + c.id, {});
       const sync = !KV.configured() ? '' : sy.error ? '<span class="dot bad"></span>sync failed' : sy.localDirty ? '<span class="dot warn"></span>highlights waiting to sync' : sy.last ? '<span class="dot ok"></span>highlights synced ' + esc(when(sy.last)) : '';
-      return '<a class="card course' + (have[c.id] ? '' : ' missing') + '" href="' + esc(KV.courseUrl(c.id)) + '">' +
+      const last = have[c.id] ? KV.read('kv:last:' + c.id, null) : null;
+      const cont = last && last.hash && (c.toc || []).some(x => x.id === last.id) ? '<a class="cont" href="' + esc(KV.courseUrl(c.id) + last.hash) + '">↩ Continue: ' + esc(last.title) + '</a>' : '';
+      return '<a class="card course' + (have[c.id] ? '' : ' missing') + (cont ? ' has-cont' : '') + '" href="' + esc(KV.courseUrl(c.id)) + '">' +
         '<div><div><span class="code">' + esc(c.code) + '</span> <span class="title">' + esc(c.title) + '</span></div>' +
         '<div class="meta">' + (c.contentVersion ? 'content v' + c.contentVersion + ' · ' : '') + c.concepts + ' concepts · ' + (c.bytes / 1048576).toFixed(1) + ' MB' +
         (ok ? '' : have[c.id] ? ' · <b>older copy</b>' : ' · not downloaded') + '</div>' + (sync ? '<div class="meta">' + sync + '</div>' : '') + '</div>' +
-        '<span class="go" aria-hidden="true">›</span></a>';
+        '<span class="go" aria-hidden="true">›</span></a>' + cont;
     }).join('');
+    renderDue(list); renderCapture(list);
+    $('#jump').hidden = !list.some(c => (c.toc || []).length);
     // D-36: my own pages that are not course notes, one section each (first: Planner)
     const pages = (d.index && d.index.pages) || [], hp = KV.cachedPages(), secs = [];
     pages.forEach(p => { if (!secs.includes(p.section)) secs.push(p.section); });
@@ -154,6 +207,102 @@ h2.sec{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:v
     $('#foot').textContent = 'App ' + (APP_VERSION.startsWith('__') ? 'dev' : APP_VERSION) + (d.index ? ' · notes built ' + when(d.index.built) + ' from ' + String(d.index.source || '').slice(0, 7) : '') + ' · last check ' + when(d.checked);
   }
 
+  /* ---------- D-38: what is due, from every course's home page (index.json → deadlines) ---------- */
+  const DAY = 86400000, dayOf = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
+  const dueKey = (c, e) => c.id + '|' + (e.date || '') + '|' + e.what;
+  function renderDue(list) {
+    const now = new Date(), t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), ticks = KV.read('kv:dueDone', {}), rows = [], nodate = [];
+    list.forEach(c => (c.deadlines || []).forEach(e => {
+      if (e.done) return;
+      if (!e.date) { if (e.key && !/to come|later/i.test(e.due + ' ' + e.what)) nodate.push(c.code + ' ' + e.what.replace(/\s*\(.*$/, '')); return; }
+      const n = Math.round((dayOf(e.date) - t0) / DAY), end = Math.round((dayOf(e.until || e.date) - t0) / DAY), k = dueKey(c, e);
+      if (end < -2 || n > 14 || (end < 0 && !e.key && !ticks[k])) return;
+      rows.push({ c, e, n, k });
+    }));
+    rows.sort((a, b) => a.n - b.n || (b.e.key ? 1 : 0) - (a.e.key ? 1 : 0));
+    $('#today').hidden = !list.some(c => (c.deadlines || []).length);
+    $('#dueList').innerHTML = rows.length ? rows.map(r => {
+      const n = r.n, when = n < 0 ? (n === -1 ? 'yesterday' : -n + ' days ago') : n === 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days';
+      return '<li class="' + (r.e.key ? 'key' : '') + (ticks[r.k] ? ' ticked' : '') + '"><input type="checkbox" data-k="' + esc(r.k) + '"' + (ticks[r.k] ? ' checked' : '') +
+        ' aria-label="Done: ' + esc(r.e.what) + '" title="Tick when it is done: the next Claude session marks it on the course home page">' +
+        '<span class="when' + (n <= 0 ? ' now' : n <= 2 ? ' soon' : '') + '">' + when + '</span>' +
+        '<span class="what"><span><a href="' + esc(KV.courseUrl(r.c.id)) + '">' + esc(r.c.code) + '</a> · ' + esc(r.e.what) + '</span><small>' + esc(r.e.due) + (r.e.notes ? ' · ' + esc(r.e.notes) : '') + '</small></span></li>';
+    }).join('') : '<li><span class="what" style="color:var(--muted)">Nothing due in the next two weeks on any course home page.</span></li>';
+    $('#dueNote').hidden = !nodate.length; $('#dueNote').textContent = nodate.length ? 'No date yet: ' + nodate.join('; ') + '. Capture the date below when you know it.' : '';
+    $('#dueList').querySelectorAll('input').forEach(b => b.onchange = () => {
+      const t = KV.read('kv:dueDone', {}), r = rows.find(x => x.k === b.dataset.k); if (!r) return;
+      if (b.checked) { const it = KV.captureAdd('Done: ' + r.c.code + ' — ' + r.e.what + ' (' + r.e.due + '). Mark it on the course home page.', r.c.id, 'done'); t[r.k] = it ? it.id : true; }
+      else { if (typeof t[r.k] === 'string') KV.captureRemove(t[r.k]); delete t[r.k]; }
+      KV.write('kv:dueDone', t); render(); syncSoon();
+    });
+  }
+
+  /* ---------- D-38: jump to a concept in any course ---------- */
+  function search(q) {
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean), out = [];
+    if (!words.length) return out;
+    ((KV.distState().index || {}).courses || []).forEach(c => (c.toc || []).forEach(x => {
+      const title = x.title.toLowerCase(), hay = title + ' ' + (x.area || '').toLowerCase() + ' ' + c.code.toLowerCase() + ' ' + c.code.toLowerCase().replace(/\s+/g, '') + ' ' + x.id;
+      if (!words.every(w => hay.includes(w))) return;
+      out.push({ c, x, score: (words.every(w => title.includes(w)) ? 0 : 2) + (title.startsWith(words[0]) ? 0 : 1) });
+    }));
+    return out.sort((a, b) => a.score - b.score).slice(0, 8);
+  }
+  let hitOn = 0;
+  function showHits() {
+    const hits = search($('#q').value), box = $('#hits');
+    hitOn = Math.max(0, Math.min(hitOn, hits.length - 1));
+    box.hidden = !$('#q').value.trim();
+    box.innerHTML = hits.length ? hits.map((h, i) => '<li' + (i === hitOn ? ' class="on"' : '') + '><a href="' + esc(KV.courseUrl(h.c.id) + '#/c/' + encodeURIComponent(h.x.id)) + '">' + esc(h.x.title) +
+      '<small>' + esc(h.c.code) + (h.x.area ? ' · ' + esc(h.x.area) : '') + '</small></a></li>').join('') : '<li><a><small>No concept title matches. Search inside a course looks through the full text.</small></a></li>';
+  }
+  $('#q').addEventListener('input', () => { hitOn = 0; showHits(); });
+  $('#q').addEventListener('keydown', e => {
+    const n = $('#hits').querySelectorAll('a[href]').length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); hitOn = (hitOn + (e.key === 'ArrowDown' ? 1 : n - 1)) % Math.max(n, 1); showHits(); }
+    else if (e.key === 'Enter') { const a = $('#hits').querySelectorAll('a[href]')[hitOn]; if (a) location.href = a.href; }
+    else if (e.key === 'Escape') { $('#q').value = ''; showHits(); $('#q').blur(); }
+  });
+  document.addEventListener('keydown', e => { if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !$('#jump').hidden) { e.preventDefault(); $('#q').focus(); } });
+
+  /* ---------- D-38: quick capture ---------- */
+  let capTimer = null;
+  function syncSoon(ms = 1500) {
+    clearTimeout(capTimer);
+    capTimer = setTimeout(() => { if (KV.configured() && navigator.onLine !== false) KV.syncCaptures().then(() => renderCapture()).catch(e => console.warn('[kv] captures', e)); }, ms);
+  }
+  function renderCapture(list) {
+    list = list || ((KV.distState().index || {}).courses || []);
+    $('#capture').hidden = !KV.configured();
+    const sel = $('#capCourse'), cur = sel.value;
+    sel.innerHTML = '<option value="">Any course / general</option>' + list.map(c => '<option value="' + esc(c.id) + '">' + esc(c.code) + '</option>').join('');
+    sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
+    const code = id => (list.find(c => c.id === id) || {}).code || '';
+    const items = KV.captureList().filter(it => it.kind !== 'done' || !it.to).slice(0, 6);
+    $('#capList').innerHTML = items.map(it =>
+      '<li><span class="t">' + esc(it.text) + '<small' + (it.to ? ' class="ok"' : '') + '>' + (code(it.course) ? esc(code(it.course)) + ' · ' : '') + esc(when(it.at)) + ' · ' +
+      (it.to ? '✓ picked up → ' + esc(it.to) : it.mine && it.unsynced ? 'saved here, waiting to sync' : 'waiting for the next Claude session') + '</small></span>' +
+      (it.mine && !it.to ? '<button data-id="' + esc(it.id) + '" title="Remove" aria-label="Remove this capture">✕</button>' : '') + '</li>').join('');
+    $('#capList').querySelectorAll('button').forEach(b => b.onclick = () => { KV.captureRemove(b.dataset.id); renderCapture(); syncSoon(); });
+  }
+  function capSave() {
+    const it = KV.captureAdd($('#capText').value, $('#capCourse').value, 'note');
+    if (!it) { $('#capText').focus(); return; }
+    $('#capText').value = ''; renderCapture(); status('Captured. ' + (navigator.onLine === false ? 'It syncs when you are back online.' : 'Syncing…'), 'ok'); syncSoon(300);
+  }
+  $('#capSave').onclick = capSave;
+  $('#capText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) capSave(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { if (KV.capState().dirty && KV.configured() && navigator.onLine !== false) KV.syncCaptures(true).catch(() => {}); }
+    else if (KV.configured()) { render(); syncSoon(500); }
+  });
+  (function shared() {   // opened from the app shortcut "Capture", or as the target of another app's Share
+    const p = new URLSearchParams(location.search), txt = [p.get('title'), p.get('text'), p.get('url')].filter(Boolean).join(' — ');
+    if (!txt && !p.has('capture')) return;
+    history.replaceState(null, '', location.pathname);
+    window.addEventListener('load', () => { $('#capText').value = txt; if (!$('#capture').hidden) { $('#capture').scrollIntoView({ block: 'center' }); $('#capText').focus(); } });
+  })();
+
   async function update(manual) {
     if (!KV.configured()) return;
     if (navigator.onLine === false) { status('Offline: showing the notes saved on this device.'); return; }
@@ -165,6 +314,7 @@ h2.sec{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:v
       if (r.changed.length) parts.push('Downloaded ' + r.changed.length + ' course(s).');
       if (r.changedPages && r.changedPages.length) parts.push('Downloaded ' + r.changedPages.length + ' page(s).');
       if (r.removed.length) parts.push('Removed ' + r.removed.length + ' course(s) or page(s) no longer published.');
+      syncSoon(200);
       if (r.warnings.length) { status(parts.concat(r.warnings).join(' '), 'bad'); return; }
       status(parts.length ? parts.join(' ') + ' Ready offline.' : (manual ? 'Up to date.' : 'Up to date · ready offline.'), 'ok');
     } catch (e) { status((e.message || String(e)) + (KV.distState().index ? ' Showing the copy on this device.' : ''), 'bad'); }
@@ -209,7 +359,7 @@ h2.sec{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:v
     await KV.forgetNotes(); KV.saveSettings({ token: '' }); $('#settings').hidden = true; render(); showSetup(true, false); status('Removed. Connect again to read.');
   };
   $('#btnUpdate').onclick = () => update(true);
-  window.addEventListener('online', () => update(false));
+  window.addEventListener('online', () => { update(false); syncSoon(2500); });
 
   /* ---------- start ---------- */
   render();
