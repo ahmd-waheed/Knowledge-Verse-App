@@ -237,6 +237,6 @@
   }
 
   window.KV = { settings, saveSettings, configured, cleanDevice, guessDevice, api, ApiError, verify, update, forgetNotes, prepare, trace, dropTraces,
-                distState, cachedShas, cachedPages, courseUrl, pageUrl, root: ROOT, listAnnotations, listLegends, legendFile, blobText, putFile, deviceFile, read, write,
+                distState, cachedShas, cachedPages, courseUrl, pageUrl, root: ROOT, listAnnotations, listLegends, listDir: listJson, legendFile, blobText, putFile, deviceFile, read, write,
                 captureAdd, captureRemove, captureList, syncCaptures, capState };
 })();

@@ -193,6 +193,8 @@
       tools.insertBefore(home, tools.firstChild);
     }
     refreshUI();
+    const kf = /^#\/kvfile\/([^/]+)(?:\/(.+))?$/.exec(location.hash);   // I-52: a review card of a highlight on one of my typed files
+    if (kf && KB.files && KB.files.open) { history.replaceState(null, '', location.pathname + location.search + '#/p/home'); try { KB.files.open(decodeURIComponent(kf[1]), kf[2] ? decodeURIComponent(kf[2]) : undefined); } catch (e) {} }
     syncNow().then(checkUpdate);
   });
   window.addEventListener('kb:annotations', () => {

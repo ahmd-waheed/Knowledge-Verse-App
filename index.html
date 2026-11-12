@@ -78,9 +78,30 @@ textarea{ resize:vertical; min-height:2.9em; }
 #capList .t{ flex:1; min-width:0; overflow-wrap:anywhere; } #capList small{ display:block; color:var(--muted); font-size:.8rem; }
 #capList small.ok{ color:var(--ok); }
 #capList button{ padding:2px 8px; border:0; background:transparent; color:var(--muted); }
+/* I-52: review */
+#review h2{ display:flex; align-items:baseline; gap:8px; }
+#rvCount{ font-weight:400; color:var(--muted); font-size:.9rem; }
+.rv-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; font-size:.82rem; color:var(--muted); }
+.rv-cat{ color:#15171f; border-radius:999px; padding:1px 9px; font-weight:600; }
+.rv-concept{ font-weight:650; font-size:1.05rem; margin-top:8px; overflow-wrap:anywhere; }
+.rv-where{ color:var(--muted); overflow-wrap:anywhere; }
+.rv-ask{ margin:10px 0 0; font-size:.92rem; }
+.rv-text{ margin-top:12px; border-left:4px solid var(--hl,#bfdbfe); padding:4px 0 4px 12px; white-space:pre-line; overflow-wrap:anywhere; overflow-x:auto; }
+.rv-text mjx-container[display="true"]{ max-width:100%; overflow-x:auto; overflow-y:hidden; }
+.rv-comment{ margin-top:8px; padding:8px 10px; background:var(--bg); border-radius:8px; font-size:.92rem; white-space:pre-line; overflow-wrap:anywhere; }
+.rv-comment b{ color:var(--muted); font-weight:600; font-size:.8rem; display:block; }
+.rv-warn{ margin:8px 0 0; color:var(--warn); font-size:.86rem; }
+.rv-btns{ display:flex; gap:8px; margin-top:14px; }
+.rv-btns button{ flex:1; min-width:0; padding:10px 4px; }
+.rv-btns small{ display:block; font-size:.74rem; color:var(--muted); }
+.rv-btns button.primary small{ color:inherit; opacity:.85; }
+a.rv-open{ display:inline-block; margin-top:12px; color:var(--accent); text-decoration:none; font-size:.9rem; }
+a.rv-open:hover{ text-decoration:underline; }
+.rv-done{ margin:0; }
 [hidden]{ display:none !important; }
 </style>
 <script src="kv.js"></script>
+<script src="review.js"></script>
 </head>
 <body>
 <main>
@@ -113,6 +134,11 @@ textarea{ resize:vertical; min-height:2.9em; }
     <h2>Due soon</h2>
     <ul id="dueList" class="due"></ul>
     <p id="dueNote" class="hint" hidden></p>
+  </section>
+
+  <section id="review" class="card" hidden>
+    <h2>Review <span id="rvCount"></span></h2>
+    <div id="rvBody"></div>
   </section>
 
   <div id="jump" hidden>
@@ -160,7 +186,7 @@ textarea{ resize:vertical; min-height:2.9em; }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const when = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
   const status = (msg, cls = '') => { const s = $('#status'); s.textContent = msg; s.className = cls; };
-  const APP_VERSION = "2026-11-10-9ed9d8de";
+  const APP_VERSION = "2026-11-12-99f6e3de";
 
   /* ---------- service worker: offline ---------- */
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => status('Offline mode unavailable: ' + e.message, 'bad'));
@@ -185,7 +211,7 @@ textarea{ resize:vertical; min-height:2.9em; }
         (ok ? '' : have[c.id] ? ' · <b>older copy</b>' : ' · not downloaded') + '</div>' + (sync ? '<div class="meta">' + sync + '</div>' : '') + '</div>' +
         '<span class="go" aria-hidden="true">›</span></a>' + cont;
     }).join('');
-    renderDue(list); renderCapture(list);
+    renderDue(list); renderCapture(list); renderReview();
     $('#jump').hidden = !list.some(c => (c.toc || []).length);
     // D-36: my own pages that are not course notes, one section each (first: Planner)
     const pages = (d.index && d.index.pages) || [], hp = KV.cachedPages(), secs = [];
@@ -236,6 +262,57 @@ textarea{ resize:vertical; min-height:2.9em; }
       KV.write('kv:dueDone', t); render(); syncSoon();
     });
   }
+
+  /* ---------- I-52: review. My Key Takeaways and Prove-by-hand highlights come back on a schedule (review.js) ---------- */
+  const RV = KV.review, rv = { id: null, shown: false, last: null, run: 0 };
+  let rvTimer = null;
+  function reviewSoon(ms = 15000) {   // one write for a sitting: 15 s after the last card, or when I leave the page
+    clearTimeout(rvTimer);
+    rvTimer = setTimeout(() => { if (KV.configured() && navigator.onLine !== false) RV.sync().then(n => { if (n) renderReview(); }).catch(e => console.warn('[kv] review', e)); }, ms);
+  }
+  async function renderReview(focus) {
+    const q = RV.queue(), box = $('#review'), body = $('#rvBody'), run = ++rv.run;
+    box.hidden = !q.total; if (!q.total) { body.innerHTML = ''; return; }
+    const list = q.list;
+    $('#rvCount').textContent = list.length ? '(' + list.length + ' due)' : '';
+    const card = list.find(c => c.id === rv.id) || list.find(c => c.id !== rv.last) || list[0];   // not the card I just failed, if another waits
+    if (!card) {
+      rv.id = null; rv.shown = false;
+      body.innerHTML = '<p class="rv-done">Done for today ✓' + (q.next ? ' <span class="hint">Next: ' + (q.next.inDays === 1 ? 'tomorrow' : 'in ' + q.next.inDays + ' days') + ' (' + q.next.n + ').</span>' : '') + '</p>' +
+        (q.held ? '<p class="hint">' + q.held + ' more highlight' + (q.held === 1 ? '' : 's') + ' will start on the coming days (' + RV.NEW_PER_DAY + ' new a day).</p>' : '');
+      return;
+    }
+    if (card.id !== rv.id) { rv.id = card.id; rv.shown = false; }
+    const d = RV.describe(card, await RV.meta(card)); if (run !== rv.run) return;   // a newer render started while the course page was read
+    body.innerHTML = '<div class="rv-card" data-id="' + esc(card.id) + '" data-cat="' + esc(card.cat) + '">' +
+      '<div class="rv-meta"><span class="rv-cat" style="background:' + esc(d.color) + '">' + esc(d.cat) + '</span><span>' + esc(d.code) + '</span>' + (d.isNew ? '<span>· new</span>' : '') + '</div>' +
+      '<div class="rv-front"><div class="rv-concept">' + esc(d.concept) + '</div>' + (d.where ? '<div class="rv-where">' + esc(d.where) + '</div>' : '') + '</div>' +
+      '<p class="rv-ask">' + esc(d.ask) + '</p>' +
+      (d.prove ? '<a class="rv-open" href="' + esc(d.href) + '">' + esc(d.link) + ' ›</a>' : '') +
+      '<div class="rv-back"></div><div class="rv-btns"><button id="rvShow" class="primary">Show</button></div></div>';
+    RV.typeset(body.querySelector('.rv-front'), d.macros);
+    const show = () => {
+      rv.shown = true;
+      const back = body.querySelector('.rv-back'), p = RV.preview(card);
+      back.innerHTML = '<div class="rv-text" style="--hl:' + esc(d.color) + '">' + esc(d.text) + '</div>' +
+        (d.comment ? '<div class="rv-comment"><b>My comment</b>' + esc(d.comment) + '</div>' : '') +
+        (d.orphan ? '<p class="rv-warn">This text is no longer in the notes (the passage was rewritten). Open the concept to check it, then re-highlight or delete this highlight there.</p>' : '') +
+        (d.prove ? '' : '<a class="rv-open" href="' + esc(d.href) + '">' + esc(d.link) + ' ›</a>');
+      RV.typeset(back, d.macros);
+      body.querySelector('.rv-btns').innerHTML = '<button data-g="again">Again<small>today</small></button><button data-g="good" class="primary">Good<small>' + esc(p.good) + '</small></button><button data-g="easy">Easy<small>' + esc(p.easy) + '</small></button>';
+      body.querySelectorAll('.rv-btns button').forEach(b => b.onclick = () => {
+        RV.grade(card.id, b.dataset.g); rv.last = card.id; rv.id = null; rv.shown = false;
+        renderReview(true); reviewSoon();
+      });
+    };
+    $('#rvShow').onclick = show;
+    if (rv.shown) show(); else if (focus) $('#rvShow').focus({ preventScroll: true });
+  }
+  document.addEventListener('keydown', e => {   // laptop: 1 Again, 2 Good, 3 Easy once the card is shown (Show takes Space or Enter after a grade)
+    if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    const b = { 1: 'again', 2: 'good', 3: 'easy' }[e.key] && document.querySelector('#rvBody .rv-btns button[data-g="' + { 1: 'again', 2: 'good', 3: 'easy' }[e.key] + '"]');
+    if (b) { e.preventDefault(); b.click(); }
+  });
 
   /* ---------- D-38: jump to a concept in any course ---------- */
   function search(q) {
@@ -293,8 +370,11 @@ textarea{ resize:vertical; min-height:2.9em; }
   $('#capSave').onclick = capSave;
   $('#capText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) capSave(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') { if (KV.capState().dirty && KV.configured() && navigator.onLine !== false) KV.syncCaptures(true).catch(() => {}); }
-    else if (KV.configured()) { render(); syncSoon(500); }
+    if (document.visibilityState === 'hidden') {
+      if (KV.capState().dirty && KV.configured() && navigator.onLine !== false) KV.syncCaptures(true).catch(() => {});
+      if (RV.state().dirty && KV.configured() && navigator.onLine !== false) { clearTimeout(rvTimer); RV.sync(true).catch(() => {}); }
+    }
+    else if (KV.configured()) { render(); syncSoon(500); reviewSoon(800); }
   });
   (function shared() {   // opened from the app shortcut "Capture", or as the target of another app's Share
     const p = new URLSearchParams(location.search), txt = [p.get('title'), p.get('text'), p.get('url')].filter(Boolean).join(' — ');
@@ -314,7 +394,7 @@ textarea{ resize:vertical; min-height:2.9em; }
       if (r.changed.length) parts.push('Downloaded ' + r.changed.length + ' course(s).');
       if (r.changedPages && r.changedPages.length) parts.push('Downloaded ' + r.changedPages.length + ' page(s).');
       if (r.removed.length) parts.push('Removed ' + r.removed.length + ' course(s) or page(s) no longer published.');
-      syncSoon(200);
+      syncSoon(200); reviewSoon(400);
       if (r.warnings.length) { status(parts.concat(r.warnings).join(' '), 'bad'); return; }
       status(parts.length ? parts.join(' ') + ' Ready offline.' : (manual ? 'Up to date.' : 'Up to date · ready offline.'), 'ok');
     } catch (e) { status((e.message || String(e)) + (KV.distState().index ? ' Showing the copy on this device.' : ''), 'bad'); }
@@ -359,7 +439,7 @@ textarea{ resize:vertical; min-height:2.9em; }
     await KV.forgetNotes(); KV.saveSettings({ token: '' }); $('#settings').hidden = true; render(); showSetup(true, false); status('Removed. Connect again to read.');
   };
   $('#btnUpdate').onclick = () => update(true);
-  window.addEventListener('online', () => { update(false); syncSoon(2500); });
+  window.addEventListener('online', () => { update(false); syncSoon(2500); reviewSoon(3000); });
 
   /* ---------- start ---------- */
   render();

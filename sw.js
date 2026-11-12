@@ -5,7 +5,7 @@
      downloading them from the private repo, and this worker serves them from there.
    - Requests to other sites (api.github.com) are not touched.
    tools/publish_app.py fills in the version and the file list when it publishes the app. */
-const VERSION = "2026-11-10-9ed9d8de";
+const VERSION = "2026-11-12-99f6e3de";
 const APP_CACHE = 'kv-app-' + VERSION;
 const NOTES_CACHE = 'kv-notes';
 const PRECACHE = [
@@ -77,6 +77,7 @@ const PRECACHE = [
 "mathjax/es5/output/chtml/fonts/woff-v2/MathJax_Vector-Regular.woff",
 "mathjax/es5/output/chtml/fonts/woff-v2/MathJax_Zero.woff",
 "mathjax/es5/tex-mml-chtml.js",
+"review.js",
 "sw.js"
 ];
 
