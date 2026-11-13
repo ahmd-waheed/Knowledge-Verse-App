@@ -7,7 +7,7 @@
   'use strict';
   const API = 'https://api.github.com';
   const NOTES_CACHE = 'kv-notes';
-  const KEYS = { settings: 'kv:settings', dist: 'kv:dist', cached: 'kv:cached', pages: 'kv:cachedPages' };
+  const KEYS = { settings: 'kv:settings', dist: 'kv:dist', cached: 'kv:cached', pages: 'kv:cachedPages', practice: 'kv:cachedPractice' };
   const DEFAULTS = { owner: 'ahmd-waheed', repo: 'Knowledge-Verse', branch: 'main', distBranch: 'dist', token: '', device: '' };
 
   const read = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } };
@@ -62,6 +62,9 @@
   const courseUrl = id => new URL('read/' + encodeURIComponent(id) + '.html', ROOT).href;
   // D-36: my own pages that are not course notes (the Semester Planner), in their own sections on the home page
   const pageUrl = id => new URL('read/pages/' + encodeURIComponent(id) + '.html', ROOT).href;
+  // I-56: the practice banks (items with their maths already drawn), kept in the notes cache and read from there by practice.js
+  const practiceUrl = id => new URL('read/practice/' + encodeURIComponent(id) + '.json', ROOT).href;
+  const cachedPractice = () => read(KEYS.practice, {});
 
   /** A built course file as the app serves it: the reading-app host script runs before the engine, and math
       comes from the app's own MathJax copy, so the page works offline. */
@@ -118,9 +121,23 @@
       for (const id of Object.keys(hp)) if (!pages.some(pg => pg.id === id)) { await cache.delete(pageUrl(id)); delete hp[id]; removed.push(id); }
       write(KEYS.pages, hp);
     }
+    const banks = (index.practice && index.practice.banks) || [], hb = cachedPractice(), changedBanks = [];   // I-56
+    if (!only) {
+      for (const b of banks) {
+        if (hb[b.id] === b.sha256 && await cache.match(practiceUrl(b.id))) continue;
+        const sha = files.get(b.file); if (!sha) { warnings.push('Practice (' + b.title + '): file missing on the dist branch'); continue; }
+        onProgress('Downloading practice: ' + b.title + '…');
+        const bytes = await blobBytes(sha);
+        if (await sha256(bytes) !== b.sha256) { warnings.push('Practice (' + b.title + '): download corrupted, kept the previous copy'); continue; }
+        await cache.put(practiceUrl(b.id), new Response(bytes, { headers: { 'Content-Type': 'application/json; charset=utf-8' } }));
+        hb[b.id] = b.sha256; write(KEYS.practice, hb); changedBanks.push(b.id);
+      }
+      for (const id of Object.keys(hb)) if (!banks.some(b => b.id === id)) { await cache.delete(practiceUrl(id)); delete hb[id]; }
+      write(KEYS.practice, hb);
+    }
     write(KEYS.dist, { tree: tree.sha, index, checked: Date.now() });   // courses are compared one by one, so a partial update is safe
     try { await pruneTraces(index); } catch (e) { console.warn('[kv] prune traced pages', e); }
-    return { changed, changedPages, removed, index, warnings };
+    return { changed, changedPages, changedBanks, removed, index, warnings };
   }
   /* ---------- traced pages of my typed files (I-34): fetched only when a file is opened, then kept offline ---------- */
   const traceUrl = (path, sha) => new URL('read/' + path.replace(/\.svgz$/, '.svg') + '?v=' + String(sha).slice(0, 16), ROOT).href;
@@ -154,7 +171,7 @@
     (index.courses || []).forEach(c => Object.values(c.traces || {}).forEach(l => l.forEach(e => keep.add(traceUrl(e.path, e.sha256)))));
     for (const k of await cache.keys()) if (k.url.startsWith(pre) && !keep.has(k.url)) await cache.delete(k);
   }
-  async function forgetNotes() { await caches.delete(NOTES_CACHE); localStorage.removeItem(KEYS.cached); localStorage.removeItem(KEYS.pages); localStorage.removeItem(KEYS.dist); }
+  async function forgetNotes() { await caches.delete(NOTES_CACHE); localStorage.removeItem(KEYS.cached); localStorage.removeItem(KEYS.pages); localStorage.removeItem(KEYS.practice); localStorage.removeItem(KEYS.dist); }
 
   /* ---------- annotations in the repo: courses/<id>/annotations/*.json ---------- */
   const annDir = id => 'courses/' + id + '/annotations';
@@ -162,6 +179,11 @@
   async function listJson(dir) {
     const list = await api(repoPath() + '/contents/' + dir + '?ref=' + encodeURIComponent(settings().branch), { allow404: true });
     return (Array.isArray(list) ? list : []).filter(e => e.type === 'file' && /\.json$/i.test(e.name)).map(e => ({ name: e.name, path: e.path, sha: e.sha }));
+  }
+  /** Everything in a folder of the main branch, folders included (GitHub's contents listing): [{ name, path, sha, type: 'file' | 'dir' }]. */
+  async function listEntries(dir) {
+    const list = await api(repoPath() + '/contents/' + dir + '?ref=' + encodeURIComponent(settings().branch), { allow404: true });
+    return (Array.isArray(list) ? list : []).map(e => ({ name: e.name, path: e.path, sha: e.sha, type: e.type }));
   }
   const listAnnotations = id => listJson(annDir(id));
   /* ---------- one legend for every course (I-32): annotations/legend/device-<name>.json ---------- */
@@ -237,6 +259,6 @@
   }
 
   window.KV = { settings, saveSettings, configured, cleanDevice, guessDevice, api, ApiError, verify, update, forgetNotes, prepare, trace, dropTraces,
-                distState, cachedShas, cachedPages, courseUrl, pageUrl, root: ROOT, listAnnotations, listLegends, listDir: listJson, legendFile, blobText, putFile, deviceFile, read, write,
+                distState, cachedShas, cachedPages, cachedPractice, courseUrl, pageUrl, practiceUrl, root: ROOT, listAnnotations, listLegends, listDir: listJson, listEntries, legendFile, blobText, putFile, deviceFile, read, write,
                 captureAdd, captureRemove, captureList, syncCaptures, capState };
 })();

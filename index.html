@@ -78,9 +78,44 @@ textarea{ resize:vertical; min-height:2.9em; }
 #capList .t{ flex:1; min-width:0; overflow-wrap:anywhere; } #capList small{ display:block; color:var(--muted); font-size:.8rem; }
 #capList small.ok{ color:var(--ok); }
 #capList button{ padding:2px 8px; border:0; background:transparent; color:var(--muted); }
-/* I-52: review */
-#review h2{ display:flex; align-items:baseline; gap:8px; }
-#rvCount{ font-weight:400; color:var(--muted); font-size:.9rem; }
+/* I-56: Today (daily practice; my highlight cards, I-52, are one kind in its queue) */
+#daily h2{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+#dyPhase{ font-weight:400; color:var(--muted); font-size:.9rem; }
+.dy-line{ margin:0; } .dy-line b{ font-weight:650; }
+body.flowing{ overflow:hidden; }
+#flow{ position:fixed; inset:0; z-index:20; background:var(--bg); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; }
+.fl-in{ max-width:720px; margin:0 auto; padding:10px 16px 40px; }
+.fl-top{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.fl-top button{ padding:6px 12px; flex:none; }
+.fl-bar{ flex:1; height:6px; border-radius:3px; background:var(--line); overflow:hidden; } .fl-bar i{ display:block; height:100%; background:var(--accent); width:0; transition:width .2s; }
+#flCount{ color:var(--muted); font-size:.85rem; flex:none; }
+.pq-tag{ border:1px solid var(--line); border-radius:999px; padding:1px 9px; font-weight:600; color:var(--fg); }
+.pq-stem{ font-size:1.05rem; margin:12px 0 4px; overflow-wrap:anywhere; } .pq-stem p{ margin:0 0 8px; }
+.pq-how{ color:var(--muted); font-size:.86rem; margin:0 0 8px; }
+.pq-opts{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+.pq-opt{ display:flex; gap:10px; align-items:baseline; text-align:left; width:100%; padding:12px; border-radius:10px; min-height:48px; overflow-wrap:anywhere; }
+.pq-opt > span.t{ flex:1; min-width:0; }
+.pq-n{ flex:none; min-width:1.5em; height:1.5em; border-radius:50%; border:1px solid var(--line); font-size:.8rem; display:inline-flex; align-items:center; justify-content:center; color:var(--muted); }
+.pq-opt.sel, .pq-tf button.sel, .pq-chips button.sel{ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+.pq-opt.sel .pq-n{ background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+.pq-opt.key, .pq-tf button.key, .pq-chips button.key{ border-color:var(--ok); box-shadow:inset 0 0 0 1px var(--ok); }
+.pq-opt.bad, .pq-tf button.bad, .pq-chips button.bad{ border-color:var(--bad); box-shadow:inset 0 0 0 1px var(--bad); }
+.pq-opt:disabled, .pq-tf button:disabled, .pq-chips button:disabled{ opacity:1; color:var(--fg); }
+.pq-tf{ display:flex; gap:8px; } .pq-tf button{ flex:1; padding:12px; min-height:48px; }
+.pq-part{ border-top:1px solid var(--line); padding:10px 0; } .pq-part:first-child{ border-top:0; }
+.pq-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; } .pq-chips button{ padding:8px 12px; min-height:40px; }
+.pq-why{ display:block; margin-top:6px; font-size:.9rem; color:var(--muted); }
+.pq-why b.ok{ color:var(--ok); } .pq-why b.no{ color:var(--bad); }
+.pq-conf{ margin-top:14px; } .pq-conf p{ margin:0 0 6px; }
+.pq-verdict{ margin:16px 0 8px; font-weight:650; } .pq-verdict.ok{ color:var(--ok); } .pq-verdict.no{ color:var(--bad); }
+.pq-box{ margin-top:10px; padding:10px 12px; background:var(--card); border:1px solid var(--line); border-radius:10px; font-size:.95rem; overflow-wrap:anywhere; }
+.pq-box p{ margin:0 0 6px; } .pq-box p:last-child{ margin-bottom:0; } .pq-box > b{ display:block; color:var(--muted); font-weight:600; font-size:.8rem; margin-bottom:2px; }
+.pq-box pre{ margin:8px 0 0; padding:8px; background:var(--bg); border-radius:8px; font-size:.8rem; overflow-x:auto; white-space:pre; }
+.pq-links{ margin:10px 0 0; font-size:.9rem; color:var(--muted); } .pq-links a{ color:var(--accent); text-decoration:none; display:block; padding:3px 0; }
+.pq-others summary{ margin-top:10px; }
+.mth{ display:inline-block; max-width:100%; vertical-align:baseline; } .mth svg{ display:inline-block; max-width:100%; }
+.mth.d{ display:block; text-align:center; margin:.5em 0; overflow-x:auto; overflow-y:hidden; }
+.rule-card h3{ margin:10px 0 6px; font-size:1.1rem; } .rule-card .st{ font-size:1.05rem; }
 .rv-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; font-size:.82rem; color:var(--muted); }
 .rv-cat{ color:#15171f; border-radius:999px; padding:1px 9px; font-weight:600; }
 .rv-concept{ font-weight:650; font-size:1.05rem; margin-top:8px; overflow-wrap:anywhere; }
@@ -101,7 +136,9 @@ a.rv-open:hover{ text-decoration:underline; }
 [hidden]{ display:none !important; }
 </style>
 <script src="kv.js"></script>
+<script src="srs.js"></script>
 <script src="review.js"></script>
+<script src="practice.js"></script>
 </head>
 <body>
 <main>
@@ -130,15 +167,15 @@ a.rv-open:hover{ text-decoration:underline; }
     <p class="hint">The token stays in this browser on this device. Anyone who can use this browser profile can use it, so keep the device locked.</p>
   </section>
 
+  <section id="daily" class="card" hidden>
+    <h2>Today <span id="dyPhase"></span></h2>
+    <div id="dyBody"></div>
+  </section>
+
   <section id="today" class="card" hidden>
     <h2>Due soon</h2>
     <ul id="dueList" class="due"></ul>
     <p id="dueNote" class="hint" hidden></p>
-  </section>
-
-  <section id="review" class="card" hidden>
-    <h2>Review <span id="rvCount"></span></h2>
-    <div id="rvBody"></div>
   </section>
 
   <div id="jump" hidden>
@@ -179,6 +216,13 @@ a.rv-open:hover{ text-decoration:underline; }
 
   <footer id="foot"></footer>
 </main>
+<div id="flow" hidden role="dialog" aria-label="Today's practice">
+  <div class="fl-in">
+    <div class="fl-top"><button id="flClose" aria-label="Close and continue later">✕</button><div class="fl-bar"><i id="flBar"></i></div><span id="flCount"></span></div>
+    <div id="flBody"></div>
+  </div>
+</div>
+<svg id="mthDefs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs></defs></svg>
 <script>
 (function () {
   'use strict';
@@ -186,7 +230,7 @@ a.rv-open:hover{ text-decoration:underline; }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const when = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
   const status = (msg, cls = '') => { const s = $('#status'); s.textContent = msg; s.className = cls; };
-  const APP_VERSION = "2026-11-12-99f6e3de";
+  const APP_VERSION = "2026-11-13-1b54c9aa";
 
   /* ---------- service worker: offline ---------- */
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => status('Offline mode unavailable: ' + e.message, 'bad'));
@@ -211,7 +255,7 @@ a.rv-open:hover{ text-decoration:underline; }
         (ok ? '' : have[c.id] ? ' · <b>older copy</b>' : ' · not downloaded') + '</div>' + (sync ? '<div class="meta">' + sync + '</div>' : '') + '</div>' +
         '<span class="go" aria-hidden="true">›</span></a>' + cont;
     }).join('');
-    renderDue(list); renderCapture(list); renderReview();
+    renderDue(list); renderCapture(list); renderDaily();
     $('#jump').hidden = !list.some(c => (c.toc || []).length);
     // D-36: my own pages that are not course notes, one section each (first: Planner)
     const pages = (d.index && d.index.pages) || [], hp = KV.cachedPages(), secs = [];
@@ -229,7 +273,7 @@ a.rv-open:hover{ text-decoration:underline; }
     $('#actions').hidden = !KV.configured();
     const s = KV.settings();
     $('#setInfo').innerHTML = 'Repository <b>' + esc(s.owner + '/' + s.repo) + '</b> · this device: <b>' + esc(s.device || '—') + '</b>' +
-      ' · highlights go to <code>courses/&lt;id&gt;/annotations/device-' + esc(s.device) + '.json</code>';
+      ' · highlights go to <code>courses/&lt;id&gt;/annotations/device-' + esc(s.device) + '.json</code>, practice answers to <code>practice/device-' + esc(s.device) + '/</code>';
     $('#foot').textContent = 'App ' + (APP_VERSION.startsWith('__') ? 'dev' : APP_VERSION) + (d.index ? ' · notes built ' + when(d.index.built) + ' from ' + String(d.index.source || '').slice(0, 7) : '') + ' · last check ' + when(d.checked);
   }
 
@@ -263,33 +307,165 @@ a.rv-open:hover{ text-decoration:underline; }
     });
   }
 
-  /* ---------- I-52: review. My Key Takeaways and Prove-by-hand highlights come back on a schedule (review.js) ---------- */
-  const RV = KV.review, rv = { id: null, shown: false, last: null, run: 0 };
-  let rvTimer = null;
-  function reviewSoon(ms = 15000) {   // one write for a sitting: 15 s after the last card, or when I leave the page
+  /* ---------- I-56: Today. One queue a day: practice items (practice.js), then my highlight cards (review.js, I-52) ---------- */
+  const RV = KV.review, PR = KV.practice, SRS = KV.srs, rv = { shown: false, id: null };
+  let rvTimer = null, dyRun = 0, hlRun = 0;
+  function reviewSoon(ms = 15000) {   // one write for a sitting: 15 s after the last answer, or when I leave the page
     clearTimeout(rvTimer);
-    rvTimer = setTimeout(() => { if (KV.configured() && navigator.onLine !== false) RV.sync().then(n => { if (n) renderReview(); }).catch(e => console.warn('[kv] review', e)); }, ms);
+    rvTimer = setTimeout(() => { if (KV.configured() && navigator.onLine !== false) Promise.all([RV.sync(), PR.sync()]).then(n => { if (n[0] || n[1]) renderDaily(); }).catch(e => console.warn('[kv] practice', e)); }, ms);
   }
-  async function renderReview(focus) {
-    const q = RV.queue(), box = $('#review'), body = $('#rvBody'), run = ++rv.run;
-    box.hidden = !q.total; if (!q.total) { body.innerHTML = ''; return; }
-    const list = q.list;
-    $('#rvCount').textContent = list.length ? '(' + list.length + ' due)' : '';
-    const card = list.find(c => c.id === rv.id) || list.find(c => c.id !== rv.last) || list[0];   // not the card I just failed, if another waits
-    if (!card) {
-      rv.id = null; rv.shown = false;
-      body.innerHTML = '<p class="rv-done">Done for today ✓' + (q.next ? ' <span class="hint">Next: ' + (q.next.inDays === 1 ? 'tomorrow' : 'in ' + q.next.inDays + ' days') + ' (' + q.next.n + ').</span>' : '') + '</p>' +
-        (q.held ? '<p class="hint">' + q.held + ' more highlight' + (q.held === 1 ? '' : 's') + ' will start on the coming days (' + RV.NEW_PER_DAY + ' new a day).</p>' : '');
-      return;
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  async function renderDaily() {
+    const run = ++dyRun, box = $('#daily'), body = $('#dyBody');
+    const bank = await PR.load(); if (run !== dyRun) return;
+    $('#mthDefs').firstElementChild.innerHTML = bank.defs.join('');   // the glyphs every formula of the items refers to
+    const s = PR.summary(); box.hidden = !s.any; if (!s.any) { body.innerHTML = ''; return; }
+    $('#dyPhase').textContent = s.phase ? s.phase.name + ' · day ' + s.phase.n + (s.phase.of ? ' of ' + s.phase.of : '') : '';
+    const parts = []; if (s.left) parts.push(plural(s.left, 'question')); if (s.hl) parts.push(plural(s.hl, 'highlight'));
+    const score = s.answered ? '<b>' + s.right + ' of ' + s.answered + '</b> right' + (s.wrongSure ? ' · ' + s.wrongSure + ' sure and wrong' : '') : '';
+    let h;
+    if (!s.started && !parts.length) h = '<p class="dy-line">Nothing is due today ✓' + (s.hlNext ? ' <span class="hint">Next highlight: ' + (s.hlNext.inDays === 1 ? 'tomorrow' : 'in ' + s.hlNext.inDays + ' days') + '.</span>' : '') + '</p>';
+    else if (!s.started) h = '<p class="dy-line">' + parts.join(' · ') + ' · about ' + s.minutes + ' min</p><div class="row"><button id="dyStart" class="primary">Start</button>' +
+      (s.items > PR.cfg().shortDay ? '<button id="dyShort">Short day (' + PR.cfg().shortDay + ')</button>' : '') + '</div>';
+    else if (!s.finished) h = '<p class="dy-line">' + (score ? score + ' so far · ' : '') + parts.join(' · ') + ' left</p><div class="row"><button id="dyStart" class="primary">Continue</button></div>';
+    else h = '<p class="dy-line rv-done">Done for today ✓ ' + (score ? '<span class="hint">' + score + '</span>' : '') + '</p>' +
+      ((s.moreItems || s.hlWaiting) ? '<div class="row">' + (s.moreItems ? '<button id="dyFull">Keep going (' + s.moreItems + ' more)</button>' : '') + (s.hlWaiting ? '<button id="dyMore">More highlights (' + s.hlWaiting + ')</button>' : '') + '</div>' : '');
+    body.innerHTML = h;
+    const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
+    on('dyStart', () => { PR.start(false); openFlow(); }); on('dyShort', () => { PR.start(true); openFlow(); });
+    on('dyFull', () => { PR.start(false); openFlow(); }); on('dyMore', () => { PR.more(); openFlow(); });
+  }
+  function openFlow() {
+    $('#flow').hidden = false; document.body.classList.add('flowing');
+    if (location.hash !== '#/today') history.pushState({ today: 1 }, '', '#/today');   // the back button closes the queue
+    stepFlow();
+  }
+  function closeFlow(fromBack) {
+    if ($('#flow').hidden) return;
+    $('#flow').hidden = true; document.body.classList.remove('flowing'); $('#flBody').innerHTML = '';
+    if (!fromBack && location.hash === '#/today') history.back();
+    renderDaily(); reviewSoon(1500);
+  }
+  $('#flClose').onclick = () => closeFlow(false);
+  window.addEventListener('popstate', () => { if (location.hash !== '#/today') closeFlow(true); });
+  function stepFlow() {
+    const n = PR.next(), s = PR.summary(), total = s.items + s.hl + RV.gradedToday(), done = total - s.left - s.hl;
+    $('#flBar').style.width = (total ? Math.round(100 * done / total) : 100) + '%';
+    $('#flCount').textContent = s.left ? s.left + ' to go' : s.hl ? plural(s.hl, 'highlight') : '';
+    $('#flow').scrollTop = 0;
+    if (!n) return flowDone(s);
+    if (n.type === 'rule') return renderRule(n.rule);
+    if (n.type === 'item') return renderItem(n.item);
+    return renderHighlight(n.card);
+  }
+  function flowDone(s) {
+    const TAG = { direction: 'the direction of an implication', hypothesis: 'a result used without its conditions', 'geq-vs-gt': '≥ taken for >', 'which-matrix': 'the wrong matrix or pair',
+      'sign-factor': 'a sign or a factor', 'root-choice': 'the choice of a root', 'invented-object': 'a symbol used without knowing what it stands for', purpose: 'what the step is for', finishing: 'the verdict', edge: 'an edge case', 'la-basics': 'a basic matrix rule' };
+    $('#flBody').innerHTML = '<div class="card" id="flDone"><h2>Done for today ✓</h2>' +
+      (s.answered ? '<p class="dy-line"><b>' + s.right + ' of ' + s.answered + '</b> right' + (s.wrongSure ? ' · ' + s.wrongSure + ' sure and wrong (the ones to fix)' : '') + '</p>' : '') +
+      (s.worstTag ? '<p class="hint">What cost the most today: ' + esc(TAG[s.worstTag] || s.worstTag) + '.</p>' : '') +
+      (s.hlNext ? '<p class="hint">Next highlights: ' + (s.hlNext.inDays === 1 ? 'tomorrow' : 'in ' + s.hlNext.inDays + ' days') + ' (' + s.hlNext.n + ').</p>' : '') +
+      (s.hlHeld && !PR.bank().items.size ? '<p class="hint">' + s.hlHeld + ' more highlight' + (s.hlHeld === 1 ? '' : 's') + ' will start on the coming days (' + RV.NEW_PER_DAY + ' new a day).</p>' : '') +
+      '<div class="row">' + (s.moreItems ? '<button id="fdFull">Keep going (' + s.moreItems + ' more)</button>' : '') + (s.hlWaiting ? '<button id="fdMore">More highlights (' + s.hlWaiting + ')</button>' : '') +
+      '<button id="fdClose" class="primary">Close</button></div></div>';
+    const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
+    on('fdFull', () => { PR.start(false); stepFlow(); }); on('fdMore', () => { PR.more(); stepFlow(); }); on('fdClose', () => closeFlow(false));
+    reviewSoon(3000);
+  }
+  /* a rule I have never met: its card comes once, before its first question */
+  function renderRule(rule) {
+    $('#flBody').innerHTML = '<div class="rule-card" data-rule="' + esc(rule.id) + '"><div class="rv-meta"><span class="pq-tag">New rule</span></div><h3>' + rule.title + '</h3>' +
+      '<div class="pq-box st">' + rule.statement + '</div><div class="rv-btns"><button id="rcGo" class="primary">To the questions</button></div></div>';
+    $('#rcGo').onclick = () => { PR.ruleShown(rule.id); stepFlow(); };
+  }
+  /* one practice item: answer, say how sure, then the feedback for what I tapped */
+  const KIND = { mc: '', tf: 'True or false? Then pick the reason.', 'spot-error': '', shape: '', 'first-move': 'First move', route: '' };
+  function renderItem(it) {
+    const E = it.entries, ord = PR.order(it), body = $('#flBody'), t0 = Date.now(), st = PR.states()[it.id];
+    let pick = null, tfv = null, route = [], shape = E.map(() => null);
+    const opt = (i, n) => '<button class="pq-opt" data-i="' + i + '">' + (n == null ? '' : '<span class="pq-n">' + n + '</span>') + '<span class="t">' + E[i].h + '</span></button>';
+    let inner;
+    if (it.kind === 'tf') inner = '<div class="pq-tf"><button data-v="true">True</button><button data-v="false">False</button></div><div class="pq-reasons" hidden><p class="pq-how">Why?</p><div class="pq-opts">' + ord.map(i => opt(i)).join('') + '</div></div>';
+    else if (it.kind === 'shape') inner = E.map((e, i) => '<div class="pq-part" data-i="' + i + '"><div class="t">' + e.h + '</div><div class="pq-chips">' + it.choices.map(c => '<button data-c="' + esc(c) + '">' + esc(c) + '</button>').join('') + '</div></div>').join('');
+    else if (it.kind === 'route') inner = '<div class="pq-opts">' + ord.map(i => opt(i, '')).join('') + '</div>';
+    else inner = '<div class="pq-opts">' + ord.map((i, k) => opt(i, it.kind === 'spot-error' ? k + 1 : null)).join('') + '</div>';
+    body.innerHTML = '<div class="pq" data-id="' + esc(it.id) + '" data-kind="' + esc(it.kind) + '"><div class="rv-meta"><span class="pq-tag">' + esc(it.bankTitle) + '</span>' +
+      (KIND[it.kind] ? '<span>' + KIND[it.kind] + '</span>' : '') + (st ? '' : '<span>· new</span>') + '</div><div class="pq-stem">' + it.stem + '</div>' + inner +
+      '<div class="pq-conf" hidden><p class="pq-how">How sure are you?</p><div class="rv-btns"><button data-c="sure">Sure</button><button data-c="unsure">Unsure</button><button data-c="guessed">Guessed</button></div></div><div class="pq-fb"></div></div>';
+    const q = body.querySelector('.pq'), all = sel => [...q.querySelectorAll(sel)];
+    const ready = () => it.kind === 'tf' ? tfv != null && pick != null : it.kind === 'shape' ? shape.every(x => x != null) : it.kind === 'route' ? route.length >= 2 : pick != null;
+    const upd = () => { q.querySelector('.pq-conf').hidden = !ready(); };
+    all('.pq-opt').forEach(b => b.onclick = () => {
+      const i = +b.dataset.i;
+      if (it.kind === 'route') {   // tap the steps in order; tap a numbered step again to take it (and the later ones) back
+        const at = route.indexOf(i); if (at >= 0) route = route.slice(0, at); else route.push(i);
+        all('.pq-opt').forEach(x => { const k = route.indexOf(+x.dataset.i); x.classList.toggle('sel', k >= 0); x.querySelector('.pq-n').textContent = k >= 0 ? k + 1 : ''; });
+      } else { pick = i; all('.pq-opt').forEach(x => x.classList.toggle('sel', x === b)); }
+      upd();
+    });
+    all('.pq-tf button').forEach(b => b.onclick = () => { tfv = b.dataset.v === 'true'; all('.pq-tf button').forEach(x => x.classList.toggle('sel', x === b)); q.querySelector('.pq-reasons').hidden = false; upd(); });
+    all('.pq-part').forEach(p => p.querySelectorAll('button').forEach(b => b.onclick = () => { shape[+p.dataset.i] = b.dataset.c; p.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b)); upd(); }));
+    all('.pq-conf button').forEach(b => b.onclick = () => {
+      const mine = it.kind === 'tf' ? { v: tfv, r: pick } : it.kind === 'shape' ? shape : it.kind === 'route' ? route : pick;
+      reveal(it, q, mine, b.dataset.c, PR.answer(it, mine, b.dataset.c, Date.now() - t0));
+    });
+  }
+  function reveal(it, q, mine, conf, res) {
+    const E = it.entries, all = sel => [...q.querySelectorAll(sel)], rule = it.rule && PR.bank().rules.get(it.rule), size = s => String(s).toLowerCase().replace(/×/g, 'x').replace(/\s+/g, '');
+    all('button').forEach(b => { b.disabled = true; }); q.querySelector('.pq-conf').hidden = true;
+    const why = (i, cls, word) => '<span class="pq-why">' + (word ? '<b class="' + cls + '">' + word + '</b> ' : '') + E[i].why + '</span>', others = [];
+    if (it.kind === 'shape') all('.pq-part').forEach(p => {
+      const i = +p.dataset.i, ok = size(mine[i]) === size(E[i].m);
+      p.querySelectorAll('button').forEach(b => { if (size(b.dataset.c) === size(E[i].m)) b.classList.add('key'); else if (b.classList.contains('sel')) b.classList.add('bad'); });
+      p.insertAdjacentHTML('beforeend', why(i, ok ? 'ok' : 'no', ok ? 'Right.' : 'Not this:'));
+    });
+    else if (it.kind === 'route') {
+      const key = PR.steps(it);
+      all('.pq-opt').forEach(b => {
+        const i = +b.dataset.i, k = key.indexOf(i), at = mine.indexOf(i), trap = E[i].m === 'trap', ok = trap ? at < 0 : at === k;
+        b.classList.add(ok ? 'key' : 'bad'); b.querySelector('.pq-n').textContent = trap ? '✕' : k + 1;
+        b.querySelector('.t').insertAdjacentHTML('beforeend', why(i, ok ? 'ok' : 'no', trap ? (at >= 0 ? 'Does not belong:' : 'Not a step:') : (ok ? 'Step ' + (k + 1) + '.' : 'This is step ' + (k + 1) + ':')));
+        b.style.order = trap ? 99 : k;   // the proof in its right order, the two traps last
+      });
+    } else {
+      if (it.kind === 'tf') all('.pq-tf button').forEach(b => { const v = b.dataset.v === 'true'; if (v === it.answer) b.classList.add('key'); else if (v === mine.v) b.classList.add('bad'); });
+      const picked = it.kind === 'tf' ? mine.r : mine;
+      all('.pq-opt').forEach(b => {
+        const i = +b.dataset.i, key = E[i].m === 'x';
+        if (key) b.classList.add('key'); else if (i === picked) b.classList.add('bad');
+        if (key || i === picked) b.querySelector('.t').insertAdjacentHTML('beforeend', why(i, key ? 'ok' : 'no', it.kind === 'spot-error' ? (key ? 'The wrong line.' : 'This line is fine.') : (key ? 'Right.' : 'Not this:')));
+        else others.push('<p>' + E[i].h + why(i, '', '') + '</p>');
+      });
     }
+    const verdict = res.right ? (conf === 'guessed' ? 'Right, but guessed: it comes back tomorrow.' : 'Right.') :
+      conf === 'sure' ? 'Sure, and wrong: this is the one to fix.' + (res.sibling ? ' A sister question comes at the end of today.' : '') : 'Not yet: it comes back tomorrow.';
+    const link = b => '<a href="' + esc(KV.courseUrl(b.course) + '#/c/' + encodeURIComponent(b.concept) + '/' + encodeURIComponent(b.block)) + '">' + esc(b.code + ' · ' + b.title + (b.label ? ' · ' + b.label : '')) + ' ›</a>';
+    const openNum = !res.right && conf === 'sure';
+    q.querySelector('.pq-fb').innerHTML = '<p class="pq-verdict ' + (res.right ? 'ok' : 'no') + '">' + verdict + '</p>' +
+      (others.length ? '<details class="pq-others"><summary>Why not the others?</summary><div class="pq-box">' + others.join('') + '</div></details>' : '') +
+      '<div class="pq-box pq-explain"><b>Why</b>' + it.why + '</div>' +
+      (rule && !res.right ? '<div class="pq-box pq-rule"><b>The rule</b>' + rule.statement + '</div>' : '') +
+      (it.numbers ? '<div class="row"><button id="pqNum">Show me numbers</button></div><div class="pq-box pq-numbers"' + (openNum ? '' : ' hidden') + '><b>Numbers</b>' + it.numbers.h + '<pre>' + esc(it.numbers.code) + '</pre></div>' : '') +
+      '<div class="pq-links">' + ((it.bit || []).length ? '<span class="pq-bit">Where it bit you: ' + esc(it.bit.join(', ')) + '</span>' : '') +
+      ((it.bites || []).length ? '<span class="pq-bites">Where it will bite you:' + it.bites.map(link).join('') + '</span>' : '') +
+      (it.source ? '<span class="pq-src">In the notes:' + link(it.source) + '</span>' : '') + '</div>' +
+      '<div class="rv-btns"><button id="pqNext" class="primary">Got it</button><button id="pqUnclear">Unclear question</button></div>';
+    const num = document.getElementById('pqNum'); if (num) num.onclick = () => { const b = q.querySelector('.pq-numbers'); b.hidden = !b.hidden; };
+    $('#pqNext').onclick = () => { stepFlow(); reviewSoon(); };
+    $('#pqUnclear').onclick = () => { PR.unclear(it); stepFlow(); reviewSoon(); };
+    q.querySelector('.pq-verdict').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  /* one of my highlights (I-52): front, Show, then Again / Good / Easy */
+  async function renderHighlight(card) {
+    const body = $('#flBody'), run = ++hlRun;
     if (card.id !== rv.id) { rv.id = card.id; rv.shown = false; }
-    const d = RV.describe(card, await RV.meta(card)); if (run !== rv.run) return;   // a newer render started while the course page was read
-    body.innerHTML = '<div class="rv-card" data-id="' + esc(card.id) + '" data-cat="' + esc(card.cat) + '">' +
+    const d = RV.describe(card, await RV.meta(card)); if (run !== hlRun || $('#flow').hidden) return;   // a newer step started while the course page was read
+    body.innerHTML = '<div id="rvBody"><div class="rv-card" data-id="' + esc(card.id) + '" data-cat="' + esc(card.cat) + '">' +
       '<div class="rv-meta"><span class="rv-cat" style="background:' + esc(d.color) + '">' + esc(d.cat) + '</span><span>' + esc(d.code) + '</span>' + (d.isNew ? '<span>· new</span>' : '') + '</div>' +
       '<div class="rv-front"><div class="rv-concept">' + esc(d.concept) + '</div>' + (d.where ? '<div class="rv-where">' + esc(d.where) + '</div>' : '') + '</div>' +
       '<p class="rv-ask">' + esc(d.ask) + '</p>' +
       (d.prove ? '<a class="rv-open" href="' + esc(d.href) + '">' + esc(d.link) + ' ›</a>' : '') +
-      '<div class="rv-back"></div><div class="rv-btns"><button id="rvShow" class="primary">Show</button></div></div>';
+      '<div class="rv-back"></div><div class="rv-btns"><button id="rvShow" class="primary">Show</button></div></div></div>';
     RV.typeset(body.querySelector('.rv-front'), d.macros);
     const show = () => {
       rv.shown = true;
@@ -300,16 +476,14 @@ a.rv-open:hover{ text-decoration:underline; }
         (d.prove ? '' : '<a class="rv-open" href="' + esc(d.href) + '">' + esc(d.link) + ' ›</a>');
       RV.typeset(back, d.macros);
       body.querySelector('.rv-btns').innerHTML = '<button data-g="again">Again<small>today</small></button><button data-g="good" class="primary">Good<small>' + esc(p.good) + '</small></button><button data-g="easy">Easy<small>' + esc(p.easy) + '</small></button>';
-      body.querySelectorAll('.rv-btns button').forEach(b => b.onclick = () => {
-        RV.grade(card.id, b.dataset.g); rv.last = card.id; rv.id = null; rv.shown = false;
-        renderReview(true); reviewSoon();
-      });
+      body.querySelectorAll('.rv-btns button').forEach(b => b.onclick = () => { RV.grade(card.id, b.dataset.g); rv.id = null; rv.shown = false; stepFlow(); reviewSoon(); });
     };
     $('#rvShow').onclick = show;
-    if (rv.shown) show(); else if (focus) $('#rvShow').focus({ preventScroll: true });
+    if (rv.shown) show(); else $('#rvShow').focus({ preventScroll: true });
   }
-  document.addEventListener('keydown', e => {   // laptop: 1 Again, 2 Good, 3 Easy once the card is shown (Show takes Space or Enter after a grade)
+  document.addEventListener('keydown', e => {   // laptop: 1 Again, 2 Good, 3 Easy once a highlight card is shown; Escape closes the queue
     if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    if (e.key === 'Escape' && !$('#flow').hidden) { closeFlow(false); return; }
     const b = { 1: 'again', 2: 'good', 3: 'easy' }[e.key] && document.querySelector('#rvBody .rv-btns button[data-g="' + { 1: 'again', 2: 'good', 3: 'easy' }[e.key] + '"]');
     if (b) { e.preventDefault(); b.click(); }
   });
@@ -372,9 +546,9 @@ a.rv-open:hover{ text-decoration:underline; }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       if (KV.capState().dirty && KV.configured() && navigator.onLine !== false) KV.syncCaptures(true).catch(() => {});
-      if (RV.state().dirty && KV.configured() && navigator.onLine !== false) { clearTimeout(rvTimer); RV.sync(true).catch(() => {}); }
+      if ((RV.state().dirty || SRS.logDirty()) && KV.configured() && navigator.onLine !== false) { clearTimeout(rvTimer); RV.sync(true).catch(() => {}); PR.sync(true).catch(() => {}); }
     }
-    else if (KV.configured()) { render(); syncSoon(500); reviewSoon(800); }
+    else if (KV.configured() && $('#flow').hidden) { render(); syncSoon(500); reviewSoon(800); }
   });
   (function shared() {   // opened from the app shortcut "Capture", or as the target of another app's Share
     const p = new URLSearchParams(location.search), txt = [p.get('title'), p.get('text'), p.get('url')].filter(Boolean).join(' — ');
@@ -443,6 +617,10 @@ a.rv-open:hover{ text-decoration:underline; }
 
   /* ---------- start ---------- */
   render();
+  if (location.hash === '#/today') {   // a reload in the middle of the queue: go on where I was
+    if (PR.dayRec()) PR.load().then(() => renderDaily()).then(() => { if (PR.next()) { $('#flow').hidden = false; document.body.classList.add('flowing'); stepFlow(); } else history.replaceState(null, '', location.pathname); });
+    else history.replaceState(null, '', location.pathname);
+  }
   if (!KV.configured()) { showSetup(true, false); status('Not connected yet.'); }
   else update(false);
 })();

@@ -1,11 +1,11 @@
-/* Knowledge-Verse reading app: review (I-52). My highlights come back on a schedule.
-   Loaded by the home page only (index.html), after kv.js.
+/* Knowledge-Verse reading app: my highlights as cards (I-52; since I-56 they are the kind "highlight" of the Today queue).
+   Loaded by the home page only (index.html), after kv.js and srs.js.
    Cards: every live highlight of mine in the categories Key Takeaways (cat-blue) and Prove by hand (cat-green), read from each
      course's annotation store in this browser (the engine's autosave slot '<id>-kb:v3'; same origin). A highlight that is
      deleted or resolved is no longer in its store, so its card is gone. Nothing here ever writes to a store.
    Front of a card: course, concept (index.json → toc), and the block's type and title, read from the offline copy of the course
      page and remembered per build ('kv:reviewMeta'); the course's math macros come from the same place.
-   Schedule: schedule() below is the whole rule. A day starts at 4 am, so a late night still counts as that day.
+   Schedule, day and sync: srs.js (KV.srs.schedule is the whole rule; a day starts at 4 am).
    State: 'kv:review' in this browser, local-first. This device's file review/device-<name>.json (repo root, branch main) is
      written only after I graded a card here; every device's file is merged per card, the newest review wins. Those files are
      mine: sessions never edit them (review/README.md). Design: docs/READING_APP.md §1 in the Knowledge-Verse repo. */
@@ -13,27 +13,10 @@
   'use strict';
   const KV = window.KV;
   const CATS = { 'cat-blue': { label: 'Key Takeaways', color: '#bfdbfe' }, 'cat-green': { label: 'Prove by hand', color: '#bbf7d0' } };
-  const PROVE = 'cat-green', NEW_PER_DAY = 10, CAP_DAYS = 180, DAY_STARTS_H = 4;
+  const SRS = KV.srs, PROVE = 'cat-green', NEW_PER_DAY = 10, CAP_DAYS = SRS.CAP_DAYS;
   const KEY = 'kv:review', MKEY = 'kv:reviewMeta', DIR = 'review', NOTES_CACHE = 'kv-notes';
-  const R = { now: () => Date.now() };   // the tests move this clock
-
-  /* ---------- the schedule: this function is the whole rule (FSRS can replace it later) ----------
-     card: what is stored for it (ivl = its interval in days; 0 or missing = new, or failed and not yet passed again).
-     Returns the new interval and in how many days the card is due. Again: today again, in the same sitting.
-     First pass: 1 day (Good) or 4 days (Easy). Then ×2.5 on Good, ×4 on Easy, never more than 180 days. */
-  function schedule(card, grade) {
-    if (grade === 'again') return { ivl: 0, days: 0 };
-    const prev = (card && card.ivl) || 0, f = grade === 'easy' ? 4 : 2.5;
-    const ivl = Math.min(CAP_DAYS, prev ? prev * f : (grade === 'easy' ? 4 : 1));
-    return { ivl: Math.round(ivl * 100) / 100, days: Math.max(1, Math.round(ivl)) };
-  }
-
-  /* ---------- days ---------- */
-  const pad = n => String(n).padStart(2, '0');
-  const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-  const today = () => iso(new Date(R.now() - DAY_STARTS_H * 3600000));
-  const addDays = (day, n) => { const [y, m, d] = day.split('-').map(Number); return iso(new Date(y, m - 1, d + n)); };
-  const daysFrom = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+  const R = { get now() { return SRS.now; }, set now(f) { SRS.now = f; } };   // one clock (srs.js); the tests move it
+  const { schedule, today, addDays, daysFrom } = SRS;
 
   /* ---------- state in this browser ---------- */
   function state() {
@@ -93,7 +76,7 @@
   /** I graded a card: 'again', 'good' or 'easy'. Only this starts a write to GitHub. */
   function grade(id, g) {
     const st = state(), day = today(), prev = st.cards[id] || null, r = schedule(prev, g);
-    st.cards[id] = { ivl: r.ivl, due: addDays(day, r.days), last: R.now(), n: ((prev && prev.n) || 0) + 1,
+    st.cards[id] = { ivl: r.ivl, due: addDays(day, r.days), last: SRS.now(), n: ((prev && prev.n) || 0) + 1,
                      lapses: ((prev && prev.lapses) || 0) + (g === 'again' ? 1 : 0), first: (prev && prev.first) || day };
     st.dirty = true; save(st);
     return st.cards[id];
@@ -181,9 +164,8 @@
     return chain;
   }
 
-  /* ---------- sync: review/device-<name>.json, one file per device ---------- */
-  const file = () => DIR + '/device-' + KV.settings().device + '.json';
-  const DAYRE = /^\d{4}-\d\d-\d\d$/;
+  /* ---------- sync: review/device-<name>.json, one file per device (the mechanism is srs.js → cardSync) ---------- */
+  const DAYRE = SRS.DAYRE;
   function mergeCards(into, from) {   // per card, the newest review wins
     let n = 0;
     Object.entries(from && typeof from === 'object' ? from : {}).forEach(([id, c]) => {
@@ -198,37 +180,14 @@
     return '{\n "format": "kv-review", "schema": 1,\n "savedAt": ' + JSON.stringify(new Date().toISOString()) + ', "savedBy": ' + JSON.stringify('reading app, device ' + KV.settings().device) +
       ',\n "cards": {' + (ids.length ? '\n' + ids.map(id => '  ' + JSON.stringify(id) + ': ' + JSON.stringify(s.cards[id])).join(',\n') + '\n ' : '') + '}\n}\n';
   }
-  let busy = null;
   /** Merges every device's file into this browser; writes this device's file only if I graded a card here since the last
       write. Resolves with the number of cards that changed here because of another device. */
-  function sync(keepalive = false) {
-    if (busy) return busy;
-    busy = (async () => {
-      const mine = file().split('/').pop(); let merged = 0;
-      for (let attempt = 0; ; attempt++) {
-        const list = (await KV.listDir(DIR)).filter(f => /^device-.+\.json$/.test(f.name)), seen = state().seen, got = {};
-        for (const f of list) {
-          if (seen[f.name] === f.sha) continue;
-          try { got[f.name] = { sha: f.sha, obj: JSON.parse(await KV.blobText(f.sha)) }; } catch (e) { got[f.name] = { sha: f.sha, obj: null }; }
-        }
-        let s = state();   // read again: I may have graded a card while the requests ran
-        for (const [name, g] of Object.entries(got)) { s.seen[name] = g.sha; if (g.obj) merged += mergeCards(s.cards, g.obj.cards); }
-        Object.keys(s.seen).forEach(n => { if (!list.some(f => f.name === n)) delete s.seen[n]; });
-        const remote = list.find(f => f.name === mine); s.sha = remote ? remote.sha : null;
-        if (s.dirty) { const gone = cards().gone; Object.keys(s.cards).forEach(id => { if (gone[id]) delete s.cards[id]; }); }   // a deleted or resolved highlight has no card
-        save(s);
-        if (!s.dirty) break;
-        const sent = JSON.stringify(s.cards), n = Object.keys(s.cards).length;
-        try {
-          const sha = await KV.putFile(file(), fileText(s), s.sha, 'Review from ' + KV.settings().device + ' (' + n + ' card' + (n === 1 ? '' : 's') + ')', keepalive);
-          const cur = state(); cur.sha = sha; cur.seen[mine] = sha; cur.dirty = JSON.stringify(cur.cards) !== sent; save(cur);   // a card graded during the write goes up next time
-          break;
-        } catch (e) { if (attempt || (e.status !== 409 && e.status !== 422)) throw e; }   // my file changed elsewhere (this device's name in another browser): merge it, then write
-      }
-      return merged;
-    })().finally(() => { busy = null; });
-    return busy;
-  }
+  const sync = SRS.cardSync({ dir: DIR, state, save, merge: mergeCards, text: fileText,
+    prune: s => { const gone = cards().gone; Object.keys(s.cards).forEach(id => { if (gone[id]) delete s.cards[id]; }); },   // a deleted or resolved highlight has no card
+    message: s => { const n = Object.keys(s.cards).length; return 'Review from ' + KV.settings().device + ' (' + n + ' card' + (n === 1 ? '' : 's') + ')'; } });
 
-  KV.review = Object.assign(R, { CATS, NEW_PER_DAY, CAP_DAYS, schedule, today, state, cards, queue, grade, preview, meta, describe, typeset, sync });
+  /** How many different cards I graded today (the Today queue's daily share of highlights counts them). */
+  const gradedToday = () => { const day = today(); return Object.values(state().cards).filter(c => c && SRS.dayOf(c.last || 0) === day).length; };
+
+  KV.review = Object.assign(R, { CATS, gradedToday, NEW_PER_DAY, CAP_DAYS, schedule, today, state, cards, queue, grade, preview, meta, describe, typeset, sync });
 })();
